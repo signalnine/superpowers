@@ -35,6 +35,20 @@ else
 fi
 
 cd "$OLDPWD"
+
+# Test: Empty diff (same commit)
+cd "$test_dir"
+SAME_SHA=$(git rev-parse HEAD)
+if $OLDPWD/skills/requesting-code-review/multi-review.sh \
+    "$SAME_SHA" "$SAME_SHA" "-" "no changes" --dry-run 2>&1 \
+    | grep -q "Modified files: 0"; then
+    echo "✓ Handles empty diff correctly"
+else
+    echo "✗ Should report 0 files for empty diff"
+    exit 1
+fi
+cd "$OLDPWD"
+
 rm -rf "$test_dir"
 
 echo "All tests passed!"

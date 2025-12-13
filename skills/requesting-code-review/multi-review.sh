@@ -49,12 +49,21 @@ if ! git rev-parse "$HEAD_SHA" >/dev/null 2>&1; then
     exit 1
 fi
 
+# Validate SHAs are different
+if [ "$(git rev-parse "$BASE_SHA")" = "$(git rev-parse "$HEAD_SHA")" ]; then
+    echo "Warning: BASE_SHA and HEAD_SHA point to the same commit - no changes to review" >&2
+fi
+
 # Get git diff
 GIT_DIFF=$(git diff "$BASE_SHA..$HEAD_SHA")
 
 # Get modified files
 MODIFIED_FILES=$(git diff --name-only "$BASE_SHA..$HEAD_SHA")
-MODIFIED_FILES_COUNT=$(echo "$MODIFIED_FILES" | wc -l | tr -d ' ')
+if [ -z "$MODIFIED_FILES" ]; then
+    MODIFIED_FILES_COUNT=0
+else
+    MODIFIED_FILES_COUNT=$(echo "$MODIFIED_FILES" | wc -l | tr -d ' ')
+fi
 
 # Read plan file if provided
 PLAN_CONTENT=""
