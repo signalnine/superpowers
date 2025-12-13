@@ -191,6 +191,14 @@ issues_similar() {
 # === Consensus Aggregation ===
 
 # Aggregate issues from multiple reviewers into consensus report
+# Arguments:
+#   $1 - claude_review: Full review text from Claude
+#   $2 - gemini_review: Full review text from Gemini
+#   $3 - codex_review: Full review text from Codex
+#   $4 - claude_status: Status symbol (✓ or ✗)
+#   $5 - gemini_status: Status symbol (✓ or ✗)
+#   $6 - codex_status: Status symbol (✓ or ✗)
+# Output: Formatted markdown consensus report to stdout
 aggregate_consensus() {
     local claude_review="$1"
     local gemini_review="$2"
