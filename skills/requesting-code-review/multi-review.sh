@@ -181,17 +181,19 @@ if [ $CLAUDE_EXIT -ne 0 ]; then
 fi
 
 # Launch Gemini review (optional, synchronous for now)
+# TODO Task 6: Convert to parallel background with timeout when integrating real Gemini CLI
 echo "  - Gemini (optional)..." >&2
 GEMINI_REVIEW=$(launch_gemini_review "$FULL_CONTEXT" 2>&1)
 GEMINI_EXIT=$?
 
 # Launch Codex review (optional, synchronous for now)
+# TODO Task 6+: Convert to parallel background with timeout when integrating real Codex MCP
 echo "  - Codex (optional)..." >&2
 CODEX_REVIEW=$(launch_codex_review "$FULL_CONTEXT" 2>&1)
 CODEX_EXIT=$?
 
 # Determine which reviewers succeeded
-CLAUDE_STATUS="✓"
+CLAUDE_STATUS="✓"  # Always succeeds (script exits on Claude failure)
 GEMINI_STATUS="✗ (not available)"
 CODEX_STATUS="✗ (not available)"
 
