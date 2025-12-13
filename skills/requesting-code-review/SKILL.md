@@ -1,13 +1,13 @@
 ---
 name: requesting-code-review
-description: Use when completing tasks, implementing major features, or before merging to verify work meets requirements
+description: Use when completing tasks, implementing major features, or before merging to verify work meets requirements - dispatches multiple AI reviewers (Claude, Gemini, Codex) in parallel for thorough consensus-based code review
 ---
 
 # Requesting Code Review
 
-Dispatch superpowers:code-reviewer subagent to catch issues before they cascade.
+Get parallel reviews from Claude, Gemini, and Codex to catch issues before they cascade.
 
-**Core principle:** Review early, review often.
+**Core principle:** Multiple independent reviews = maximum coverage.
 
 ## When to Request Review
 
@@ -17,11 +17,11 @@ Dispatch superpowers:code-reviewer subagent to catch issues before they cascade.
 - Before merge to main
 
 **Optional but valuable:**
-- When stuck (fresh perspective)
+- When stuck (fresh perspectives)
 - Before refactoring (baseline check)
 - After fixing complex bug
 
-## How to Request
+## How to Request Multi-Reviewer Consensus
 
 **1. Get git SHAs:**
 ```bash
@@ -29,48 +29,131 @@ BASE_SHA=$(git rev-parse HEAD~1)  # or origin/main
 HEAD_SHA=$(git rev-parse HEAD)
 ```
 
-**2. Dispatch code-reviewer subagent:**
+**2. Identify plan file:**
+```bash
+PLAN_FILE="docs/plans/2025-12-13-feature-name.md"  # or "-" if no plan
+DESCRIPTION="Brief description of what was implemented"
+```
 
-Use Task tool with superpowers:code-reviewer type, fill template at `code-reviewer.md`
+**3. Launch parallel reviews:**
 
-**Placeholders:**
-- `{WHAT_WAS_IMPLEMENTED}` - What you just built
-- `{PLAN_OR_REQUIREMENTS}` - What it should do
-- `{BASE_SHA}` - Starting commit
-- `{HEAD_SHA}` - Ending commit
-- `{DESCRIPTION}` - Brief summary
+You must coordinate three reviewers simultaneously:
 
-**3. Act on feedback:**
-- Fix Critical issues immediately
-- Fix Important issues before proceeding
-- Note Minor issues for later
-- Push back if reviewer is wrong (with reasoning)
+**a) Invoke Gemini via script (captures output):**
+```bash
+GEMINI_OUTPUT=$(./skills/requesting-code-review/multi-review.sh \
+    "$BASE_SHA" "$HEAD_SHA" "$PLAN_FILE" "$DESCRIPTION" 2>/dev/null) &
+GEMINI_PID=$!
+```
 
-## Example
+**b) Dispatch Claude subagent (via Task tool):**
+
+Use Task tool with `superpowers:code-reviewer` type, filling template from `code-reviewer.md`:
+- WHAT_WAS_IMPLEMENTED: [what you built]
+- PLAN_OR_REQUIREMENTS: [from $PLAN_FILE]
+- BASE_SHA: $BASE_SHA
+- HEAD_SHA: $HEAD_SHA
+- DESCRIPTION: $DESCRIPTION
+
+**c) Invoke Codex MCP:**
+
+Use `mcp__codex-cli__codex` tool with prompt:
+```
+You are a senior code reviewer. Review this code change:
+
+[Include git diff from $BASE_SHA to $HEAD_SHA]
+[Include plan/requirements from $PLAN_FILE]
+[Include description: $DESCRIPTION]
+
+Provide structured feedback:
+
+## Critical Issues
+- [issues or 'None']
+
+## Important Issues
+- [issues or 'None']
+
+## Suggestions
+- [suggestions or 'None']
+```
+
+**4. Wait for all reviews to complete:**
+
+```bash
+# Wait for Gemini
+wait $GEMINI_PID
+GEMINI_REVIEW="$GEMINI_OUTPUT"
+
+# Claude and Codex complete when their tools return
+CLAUDE_REVIEW="[from Task tool result]"
+CODEX_REVIEW="[from MCP tool result]"
+```
+
+**5. Aggregate into consensus report:**
+
+Parse each review for issues, group by consensus level:
+- **All reviewers agree** (3/3 or 2/2 if one failed) → HIGH PRIORITY
+- **Majority flagged** (2/3) → MEDIUM PRIORITY
+- **Single reviewer** (1/3) → CONSIDER
+
+Use issue similarity matching (same file + 60% word overlap).
+
+**6. Act on consensus feedback:**
+- **All reviewers agree** → Fix immediately before proceeding
+- **Majority flagged** → Fix unless you have strong reasoning otherwise
+- **Single reviewer** → Consider, but use judgment
+- Push back if feedback is wrong (with technical reasoning)
+
+## Simplified Single-Reviewer Mode
+
+If you need a quick review, use Claude-only mode:
+
+Dispatch `superpowers:code-reviewer` subagent directly with Task tool.
+
+This skips Gemini/Codex and gives you just Claude's review.
+
+## Example Multi-Review Workflow
 
 ```
 [Just completed Task 2: Add verification function]
 
-You: Let me request code review before proceeding.
+You: Let me request consensus code review.
 
-BASE_SHA=$(git log --oneline | grep "Task 1" | head -1 | awk '{print $1}')
-HEAD_SHA=$(git rev-parse HEAD)
+# Get SHAs
+BASE_SHA=a7981ec
+HEAD_SHA=3df7661
+PLAN_FILE="docs/plans/deployment-plan.md"
+DESCRIPTION="Added verifyIndex() and repairIndex() with 4 issue types"
 
-[Dispatch superpowers:code-reviewer subagent]
-  WHAT_WAS_IMPLEMENTED: Verification and repair functions for conversation index
-  PLAN_OR_REQUIREMENTS: Task 2 from docs/plans/deployment-plan.md
-  BASE_SHA: a7981ec
-  HEAD_SHA: 3df7661
-  DESCRIPTION: Added verifyIndex() and repairIndex() with 4 issue types
+# Launch Gemini
+[Invoke multi-review.sh script in background]
 
-[Subagent returns]:
-  Strengths: Clean architecture, real tests
-  Issues:
-    Important: Missing progress indicators
-    Minor: Magic number (100) for reporting interval
-  Assessment: Ready to proceed
+# Launch Claude subagent
+[Dispatch superpowers:code-reviewer with Task tool]
 
-You: [Fix progress indicators]
+# Launch Codex MCP
+[Use mcp__codex-cli__codex tool]
+
+# Wait for all three
+
+# Aggregate results:
+## High Priority - All Reviewers Agree
+- [Critical] Missing progress indicators
+  - Claude: "No user feedback during long operations"
+  - Gemini: "Progress reporting missing for iteration"
+  - Codex: "Add progress callbacks"
+
+## Medium Priority - Majority Flagged (2/3)
+- [Important] Magic number in code
+  - Claude: "100 should be a named constant"
+  - Codex: "Extract BATCH_SIZE constant"
+
+## Summary
+- Critical: 1 (consensus: 1)
+- Important: 1 (consensus: 0, majority: 1)
+
+You: [Fix progress indicators immediately]
+You: [Fix magic number]
 [Continue to Task 3]
 ```
 
@@ -78,12 +161,12 @@ You: [Fix progress indicators]
 
 **Subagent-Driven Development:**
 - Review after EACH task
-- Catch issues before they compound
-- Fix before moving to next task
+- All three reviewers for thoroughness
+- Fix consensus issues before next task
 
 **Executing Plans:**
 - Review after each batch (3 tasks)
-- Get feedback, apply, continue
+- Get consensus feedback, apply, continue
 
 **Ad-Hoc Development:**
 - Review before merge
@@ -93,13 +176,39 @@ You: [Fix progress indicators]
 
 **Never:**
 - Skip review because "it's simple"
-- Ignore Critical issues
-- Proceed with unfixed Important issues
-- Argue with valid technical feedback
+- Ignore Critical issues from consensus
+- Proceed with unfixed consensus issues
+- Argue with valid technical feedback from multiple reviewers
 
-**If reviewer wrong:**
+**If reviewers wrong:**
 - Push back with technical reasoning
 - Show code/tests that prove it works
 - Request clarification
 
-See template at: requesting-code-review/code-reviewer.md
+**If reviewers disagree:**
+- Consensus issues (all agree) take priority
+- Investigate majority-flagged issues
+- Use judgment on single-reviewer issues
+
+## Troubleshooting
+
+**Gemini not available:**
+- Script will mark Gemini as "✗ (not available)"
+- Continue with Claude + Codex
+- Consensus threshold adjusts (2/2 instead of 3/3)
+
+**Codex MCP fails:**
+- Mark Codex as "✗ (error)"
+- Continue with Claude + Gemini
+- Consensus threshold adjusts
+
+**Only Claude succeeds:**
+- Falls back to single-reviewer mode
+- Still get thorough review from Claude
+- Consider why other reviewers failed
+
+## Files
+
+- `multi-review.sh` - Gemini coordination script
+- `code-reviewer.md` - Claude agent definition (used by Task tool)
+- `README.md` - Architecture documentation
