@@ -48,9 +48,9 @@ GEMINI_PID=$!
 
 **b) Dispatch Claude subagent (via Task tool):**
 
-Use Task tool with `superpowers:code-reviewer` type, filling template from `code-reviewer.md`:
-- WHAT_WAS_IMPLEMENTED: [what you built]
-- PLAN_OR_REQUIREMENTS: [from $PLAN_FILE]
+Use Task tool with superpowers:code-reviewer type, filling these placeholders:
+- WHAT_WAS_IMPLEMENTED: $DESCRIPTION
+- PLAN_OR_REQUIREMENTS: Content from $PLAN_FILE
 - BASE_SHA: $BASE_SHA
 - HEAD_SHA: $HEAD_SHA
 - DESCRIPTION: $DESCRIPTION
@@ -89,14 +89,16 @@ CLAUDE_REVIEW="[from Task tool result]"
 CODEX_REVIEW="[from MCP tool result]"
 ```
 
-**5. Aggregate into consensus report:**
+**5. Aggregate into consensus report (manual aggregation by assistant):**
 
-Parse each review for issues, group by consensus level:
+Parse each review for issues and group by consensus level:
 - **All reviewers agree** (3/3 or 2/2 if one failed) → HIGH PRIORITY
 - **Majority flagged** (2/3) → MEDIUM PRIORITY
 - **Single reviewer** (1/3) → CONSIDER
 
-Use issue similarity matching (same file + 60% word overlap).
+Use issue similarity matching: issues are similar if they reference the same file AND have 60% word overlap in description.
+
+**Note:** The multi-review.sh script automatically handles consensus aggregation for Gemini's output. For Claude and Codex reviews, the assistant must manually identify similar issues across all three reviewers and group them appropriately.
 
 **6. Act on consensus feedback:**
 - **All reviewers agree** → Fix immediately before proceeding
