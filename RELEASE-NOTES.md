@@ -1,5 +1,24 @@
 # Superpowers Release Notes
 
+## v3.7.0 (2025-12-13)
+
+### Added
+
+- **Multi-Reviewer Code Review**: Enhanced `requesting-code-review` skill with consensus aggregation from Claude, Gemini, and Codex
+  - Parallel reviews from three AI reviewers for maximum coverage
+  - Consensus-based issue grouping: High Priority (all agree), Medium Priority (majority 2/3), Consider (single reviewer)
+  - Graceful degradation: Works with 1, 2, or 3 reviewers (Claude required, Gemini/Codex optional)
+  - Configurable similarity threshold via `SIMILARITY_THRESHOLD` env var (default 60%)
+  - Stop word filtering to reduce false issue matches
+  - Filename normalization (./src/foo.js and src/foo.js treated as same file)
+  - Comprehensive test coverage (9 tests covering git context, consensus algorithm, similarity matching)
+  - Detailed error reporting: Distinguishes between "not installed", "timeout", and other failures
+  - Gemini invoked via CLI subprocess, Claude via Task tool, Codex via MCP
+  - New helper script: `skills/requesting-code-review/multi-review.sh`
+  - Complete documentation: `skills/requesting-code-review/README.md` with architecture details
+
+---
+
 ## v3.6.2 (2025-12-03)
 
 ### Fixed
