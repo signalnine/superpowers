@@ -68,19 +68,26 @@ launch_gemini_review() {
         return 1
     fi
 
-    # For now, return mock review
-    cat <<EOF
-# Gemini Code Review
+    # Build review prompt
+    local prompt="You are a senior code reviewer. Review the following code change and provide structured feedback.
+
+$context
+
+Please provide your review in the following format:
 
 ## Critical Issues
-- Missing error handling in main function
+- [list critical issues here, or write 'None']
 
 ## Important Issues
-- Edge case not handled
+- [list important issues here, or write 'None']
 
 ## Suggestions
-- Add unit tests
-EOF
+- [list suggestions here, or write 'None']
+
+Be specific and include file names and line numbers when possible."
+
+    # Invoke Gemini CLI (using positional prompt, model flag removed as it's not needed)
+    gemini "$prompt" 2>&1
 }
 
 # Launch Codex MCP review
