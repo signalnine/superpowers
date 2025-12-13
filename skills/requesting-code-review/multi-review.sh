@@ -188,6 +188,143 @@ issues_similar() {
     fi
 }
 
+# === Consensus Aggregation ===
+
+# Aggregate issues from multiple reviewers into consensus report
+aggregate_consensus() {
+    local claude_review="$1"
+    local gemini_review="$2"
+    local codex_review="$3"
+    local claude_status="$4"
+    local gemini_status="$5"
+    local codex_status="$6"
+
+    # Parse issues from each review
+    local claude_issues=$(parse_issues "$claude_review")
+    local gemini_issues=$(parse_issues "$gemini_review")
+    local codex_issues=$(parse_issues "$codex_review")
+
+    # Temporary files for grouping
+    local all_issues_file=$(mktemp)
+    local consensus_all=$(mktemp)
+    local consensus_majority=$(mktemp)
+    local consensus_single=$(mktemp)
+
+    # Track which issues have been processed
+    declare -A processed_issues
+
+    # Collect all unique issues with reviewer attribution
+    {
+        echo "$claude_issues" | while IFS='|' read -r severity desc; do
+            [ -n "$desc" ] && echo "Claude|$severity|$desc"
+        done
+
+        echo "$gemini_issues" | while IFS='|' read -r severity desc; do
+            [ -n "$desc" ] && echo "Gemini|$severity|$desc"
+        done
+
+        echo "$codex_issues" | while IFS='|' read -r severity desc; do
+            [ -n "$desc" ] && echo "Codex|$severity|$desc"
+        done
+    } > "$all_issues_file"
+
+    # Group similar issues
+    while IFS='|' read -r reviewer1 severity1 desc1; do
+        [ -z "$desc1" ] && continue
+
+        # Skip if already processed
+        issue_key="$reviewer1:$desc1"
+        [ "${processed_issues[$issue_key]:-}" = "1" ] && continue
+
+        # Find all similar issues
+        matching_reviewers=("$reviewer1")
+        matching_severities=("$severity1")
+        matching_descs=("$desc1")
+
+        while IFS='|' read -r reviewer2 severity2 desc2; do
+            [ -z "$desc2" ] && continue
+            [ "$reviewer1" = "$reviewer2" ] && [ "$desc1" = "$desc2" ] && continue
+
+            if issues_similar "$desc1" "$desc2"; then
+                matching_reviewers+=("$reviewer2")
+                matching_severities+=("$severity2")
+                matching_descs+=("$desc2")
+                processed_issues["$reviewer2:$desc2"]="1"
+            fi
+        done < "$all_issues_file"
+
+        processed_issues["$issue_key"]="1"
+
+        # Determine consensus level
+        num_reviewers=${#matching_reviewers[@]}
+        max_severity="$severity1"
+
+        # Use highest severity
+        for sev in "${matching_severities[@]}"; do
+            if [ "$sev" = "Critical" ]; then
+                max_severity="Critical"
+            elif [ "$sev" = "Important" ] && [ "$max_severity" != "Critical" ]; then
+                max_severity="Important"
+            fi
+        done
+
+        # Format reviewer quotes
+        reviewer_quotes=""
+        for i in "${!matching_reviewers[@]}"; do
+            reviewer_quotes+="  - ${matching_reviewers[$i]}: \"${matching_descs[$i]}\"\n"
+        done
+
+        # Categorize by consensus
+        output_line="- [$max_severity] $desc1\n$reviewer_quotes"
+
+        if [ "$num_reviewers" -ge 3 ] || ([ "$num_reviewers" -ge 2 ] && [[ "$gemini_status" == *"✗"* || "$codex_status" == *"✗"* ]]); then
+            echo -e "$output_line" >> "$consensus_all"
+        elif [ "$num_reviewers" -eq 2 ]; then
+            echo -e "$output_line" >> "$consensus_majority"
+        else
+            echo -e "$output_line" >> "$consensus_single"
+        fi
+    done < "$all_issues_file"
+
+    # Output consensus report
+    echo "# Code Review Consensus Report"
+    echo ""
+    echo "**Reviewers**: Claude $claude_status, Gemini $gemini_status, Codex $codex_status"
+    echo "**Commits**: $BASE_SHA..$HEAD_SHA"
+    echo ""
+
+    if [ -s "$consensus_all" ]; then
+        echo "## High Priority - All Reviewers Agree"
+        cat "$consensus_all"
+        echo ""
+    fi
+
+    if [ -s "$consensus_majority" ]; then
+        echo "## Medium Priority - Majority Flagged (2/3)"
+        cat "$consensus_majority"
+        echo ""
+    fi
+
+    if [ -s "$consensus_single" ]; then
+        echo "## Consider - Single Reviewer Mentioned"
+        cat "$consensus_single"
+        echo ""
+    fi
+
+    # Summary
+    local critical_count=$(cat "$consensus_all" "$consensus_majority" "$consensus_single" 2>/dev/null | grep -c "^\- \[Critical\]" || echo "0")
+    local important_count=$(cat "$consensus_all" "$consensus_majority" "$consensus_single" 2>/dev/null | grep -c "^\- \[Important\]" || echo "0")
+    local suggestion_count=$(cat "$consensus_all" "$consensus_majority" "$consensus_single" 2>/dev/null | grep -c "^\- \[Suggestion\]" || echo "0")
+
+    echo "## Summary"
+    echo "- Critical issues: $critical_count"
+    echo "- Important issues: $important_count"
+    echo "- Suggestions: $suggestion_count"
+
+    # Cleanup
+    rm -f "$all_issues_file" "$consensus_all" "$consensus_majority" "$consensus_single"
+}
+
 # === Context Preparation ===
 
 # Validate git SHAs exist
@@ -297,18 +434,9 @@ echo "  - Claude: $CLAUDE_STATUS" >&2
 echo "  - Gemini: $GEMINI_STATUS" >&2
 echo "  - Codex: $CODEX_STATUS" >&2
 
-# For now, just output raw reviews
-echo "# Multi-Reviewer Code Review Report"
-echo ""
-echo "**Reviewers**: Claude $CLAUDE_STATUS, Gemini $GEMINI_STATUS, Codex $CODEX_STATUS"
-echo ""
-echo "## Claude Review"
-echo "$CLAUDE_REVIEW"
-echo ""
-echo "## Gemini Review"
-echo "$GEMINI_REVIEW"
-echo ""
-echo "## Codex Review"
-echo "$CODEX_REVIEW"
+# === Output Consensus Report ===
+
+aggregate_consensus "$CLAUDE_REVIEW" "$GEMINI_REVIEW" "$CODEX_REVIEW" \
+    "$CLAUDE_STATUS" "$GEMINI_STATUS" "$CODEX_STATUS"
 
 exit 0
