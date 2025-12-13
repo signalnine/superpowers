@@ -4,6 +4,20 @@ set -euo pipefail
 # Multi-reviewer code review script
 # Coordinates parallel reviews from Claude, Gemini, and Codex
 
+# Check Bash version (requires 4.0+ for associative arrays)
+if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+    echo "Error: Bash 4.0+ required (found $BASH_VERSION)" >&2
+    echo "On macOS, install with: brew install bash" >&2
+    exit 1
+fi
+
+# Check required dependencies
+command -v bc >/dev/null 2>&1 || {
+    echo "Error: 'bc' not installed (required for calculations)" >&2
+    echo "Install with: apt-get install bc (Debian/Ubuntu) or brew install bc (macOS)" >&2
+    exit 1
+}
+
 show_usage() {
     cat <<EOF
 Usage: $0 <BASE_SHA> <HEAD_SHA> <PLAN_FILE> <DESCRIPTION>
@@ -86,8 +100,15 @@ Please provide your review in the following format:
 
 Be specific and include file names and line numbers when possible."
 
-    # Invoke Gemini CLI (using positional prompt, model flag removed as it's not needed)
-    gemini "$prompt" 2>&1
+    # Invoke Gemini CLI with timeout (using positional prompt, model flag removed as it's not needed)
+    timeout 120s gemini "$prompt" 2>&1 || {
+        local exit_code=$?
+        if [ $exit_code -eq 124 ]; then
+            echo "GEMINI_TIMEOUT"
+            return 1
+        fi
+        return $exit_code
+    }
 }
 
 # Launch Codex MCP review
@@ -436,14 +457,12 @@ if [ $CLAUDE_EXIT -ne 0 ]; then
     exit 1
 fi
 
-# Launch Gemini review (optional, synchronous for now)
-# TODO Task 6: Convert to parallel background with timeout when integrating real Gemini CLI
+# Launch Gemini review (optional, synchronous)
 echo "  - Gemini (optional)..." >&2
 GEMINI_REVIEW=$(launch_gemini_review "$FULL_CONTEXT" 2>&1)
 GEMINI_EXIT=$?
 
-# Launch Codex review (optional, synchronous for now)
-# TODO Task 6+: Convert to parallel background with timeout when integrating real Codex MCP
+# Launch Codex review (optional, synchronous)
 echo "  - Codex (optional)..." >&2
 CODEX_REVIEW=$(launch_codex_review "$FULL_CONTEXT" 2>&1)
 CODEX_EXIT=$?
