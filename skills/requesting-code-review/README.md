@@ -76,6 +76,8 @@ When the assistant uses the requesting-code-review skill, it should:
    GEMINI_PID=$!
    ```
 
+   **Note:** This shows the conceptual workflow. In practice, the script handles Gemini directly while the assistant must orchestrate Claude and Codex reviews separately.
+
 3. **Simultaneously launch Claude subagent:**
    Use Task tool with superpowers:code-reviewer
 
