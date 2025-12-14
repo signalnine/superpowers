@@ -1,10 +1,19 @@
 # Multi-Reviewer Code Review System
 
+## Migration Note
+
+**The multi-review.sh script has been migrated to the multi-agent-consensus framework.**
+
+- **Old location:** `skills/requesting-code-review/multi-review.sh` (deprecated)
+- **New location:** `skills/multi-agent-consensus/multi-consensus.sh --mode=code-review`
+
+The requesting-code-review skill now uses the new framework for all multi-agent reviews.
+
 ## Architecture
 
-This directory contains a multi-reviewer code review system that coordinates parallel reviews from three AI reviewers:
+This directory contains integration with the multi-agent consensus framework that coordinates parallel reviews from three AI reviewers:
 
-1. **Claude Code** (via Task tool) - Required
+1. **Claude Code** (required) - Mock review for now
 2. **Gemini** (via CLI) - Optional
 3. **Codex** (via MCP) - Optional
 

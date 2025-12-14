@@ -35,72 +35,26 @@ PLAN_FILE="docs/plans/2025-12-13-feature-name.md"  # or "-" if no plan
 DESCRIPTION="Brief description of what was implemented"
 ```
 
-**3. Launch parallel reviews:**
-
-You must coordinate three reviewers simultaneously:
-
-**a) Invoke Gemini via script (captures output):**
-```bash
-GEMINI_OUTPUT=$(./skills/requesting-code-review/multi-review.sh \
-    "$BASE_SHA" "$HEAD_SHA" "$PLAN_FILE" "$DESCRIPTION" 2>/dev/null) &
-GEMINI_PID=$!
-```
-
-**b) Dispatch Claude subagent (via Task tool):**
-
-Use Task tool with superpowers:code-reviewer type, filling these placeholders:
-- WHAT_WAS_IMPLEMENTED: $DESCRIPTION
-- PLAN_OR_REQUIREMENTS: Content from $PLAN_FILE
-- BASE_SHA: $BASE_SHA
-- HEAD_SHA: $HEAD_SHA
-- DESCRIPTION: $DESCRIPTION
-
-**c) Invoke Codex MCP:**
-
-Use `mcp__codex-cli__codex` tool with prompt:
-```
-You are a senior code reviewer. Review this code change:
-
-[Include git diff from $BASE_SHA to $HEAD_SHA]
-[Include plan/requirements from $PLAN_FILE]
-[Include description: $DESCRIPTION]
-
-Provide structured feedback:
-
-## Critical Issues
-- [issues or 'None']
-
-## Important Issues
-- [issues or 'None']
-
-## Suggestions
-- [suggestions or 'None']
-```
-
-**4. Wait for all reviews to complete:**
+**3. Run multi-agent consensus:**
 
 ```bash
-# Wait for Gemini
-wait $GEMINI_PID
-GEMINI_REVIEW="$GEMINI_OUTPUT"
-
-# Claude and Codex complete when their tools return
-CLAUDE_REVIEW="[from Task tool result]"
-CODEX_REVIEW="[from MCP tool result]"
+../multi-agent-consensus/multi-consensus.sh --mode=code-review \
+  --base-sha="$BASE_SHA" \
+  --head-sha="$HEAD_SHA" \
+  --plan-file="$PLAN_FILE" \
+  --description="$DESCRIPTION"
 ```
 
-**5. Aggregate into consensus report (manual aggregation by assistant):**
+The framework automatically:
+- Launches Claude, Gemini, and Codex reviewers in parallel
+- Aggregates results using consensus algorithm (file matching + 60% word overlap)
+- Groups issues by agreement level:
+  - **High Priority** - All reviewers agree (3/3 or 2/2 if one unavailable)
+  - **Medium Priority** - Majority flagged (2/3)
+  - **Consider** - Single reviewer mentioned
+- Gracefully degrades if reviewers are unavailable
 
-Parse each review for issues and group by consensus level:
-- **All reviewers agree** (3/3 or 2/2 if one failed) → HIGH PRIORITY
-- **Majority flagged** (2/3) → MEDIUM PRIORITY
-- **Single reviewer** (1/3) → CONSIDER
-
-Use issue similarity matching: issues are similar if they reference the same file AND have 60% word overlap in description.
-
-**Note:** The multi-review.sh script automatically handles consensus aggregation for Gemini's output. For Claude and Codex reviews, the assistant must manually identify similar issues across all three reviewers and group them appropriately.
-
-**6. Act on consensus feedback:**
+**4. Act on consensus feedback:**
 - **All reviewers agree** → Fix immediately before proceeding
 - **Majority flagged** → Fix unless you have strong reasoning otherwise
 - **Single reviewer** → Consider, but use judgment
@@ -127,18 +81,10 @@ HEAD_SHA=3df7661
 PLAN_FILE="docs/plans/deployment-plan.md"
 DESCRIPTION="Added verifyIndex() and repairIndex() with 4 issue types"
 
-# Launch Gemini
-[Invoke multi-review.sh script in background]
+# Run multi-agent consensus
+[Invoke ../multi-agent-consensus/multi-consensus.sh]
 
-# Launch Claude subagent
-[Dispatch superpowers:code-reviewer with Task tool]
-
-# Launch Codex MCP
-[Use mcp__codex-cli__codex tool]
-
-# Wait for all three
-
-# Aggregate results:
+# Framework produces consensus report:
 ## High Priority - All Reviewers Agree
 - [Critical] Missing progress indicators
   - Claude: "No user feedback during long operations"
@@ -211,6 +157,7 @@ You: [Fix magic number]
 
 ## Files
 
-- `multi-review.sh` - Gemini coordination script
-- `code-reviewer.md` - Claude agent definition (used by Task tool)
+- `../multi-agent-consensus/multi-consensus.sh` - Multi-agent consensus framework (code-review mode)
+- `code-reviewer.md` - Claude agent definition (legacy, for single-reviewer mode)
+- `multi-review.sh` - Legacy script (deprecated, use multi-consensus.sh instead)
 - `README.md` - Architecture documentation
