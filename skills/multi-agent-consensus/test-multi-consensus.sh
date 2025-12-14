@@ -39,6 +39,7 @@ fi
 
 # Test: Code review mode extracts git context
 test_dir=$(mktemp -d)
+script_abs_path="$(cd "$(dirname "$0")" && pwd)/$(basename "$SCRIPT")"
 cd "$test_dir"
 git init -q
 git config user.email "test@test.com"
@@ -52,9 +53,9 @@ git add file.txt
 git commit -q -m "change"
 head_sha=$(git rev-parse HEAD)
 
-output=$("$OLDPWD/$SCRIPT" --mode=code-review --base-sha="$base_sha" --head-sha="$head_sha" --description="test" --dry-run 2>&1 || true)
+output=$("$script_abs_path" --mode=code-review --base-sha="$base_sha" --head-sha="$head_sha" --description="test" --dry-run 2>&1 || true)
 
-cd "$OLDPWD"
+cd /tmp
 rm -rf "$test_dir"
 
 if echo "$output" | grep -q "file.txt"; then
