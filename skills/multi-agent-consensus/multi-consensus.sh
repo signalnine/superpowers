@@ -24,34 +24,116 @@ command -v bc >/dev/null 2>&1 || {
 
 show_usage() {
     cat <<EOF
-Usage: $0 <BASE_SHA> <HEAD_SHA> <PLAN_FILE> <DESCRIPTION>
+Usage: $0 --mode=MODE [mode-specific arguments]
 
-Arguments:
-  BASE_SHA     - Starting commit for review
-  HEAD_SHA     - Ending commit for review
-  PLAN_FILE    - Path to plan/requirements document (or "-" for none)
-  DESCRIPTION  - Brief description of what was implemented
+Modes:
+  code-review        Review git changes (requires --base-sha, --head-sha)
+  general-prompt     Multi-agent consensus on prompt (requires --prompt)
 
-Example:
-  $0 abc123 def456 docs/plans/feature.md "Add user authentication"
+Code Review Mode:
+  $0 --mode=code-review --base-sha=SHA --head-sha=SHA [--plan-file=FILE] [--description=TEXT]
+
+General Prompt Mode:
+  $0 --mode=general-prompt --prompt=TEXT [--context=TEXT]
+
+Environment:
+  SIMILARITY_THRESHOLD    Word overlap threshold (default: 60)
+
+Examples:
+  $0 --mode=code-review --base-sha=abc123 --head-sha=def456 --description="Add auth"
+  $0 --mode=general-prompt --prompt="What could go wrong?" --context="Background info"
 EOF
 }
 
-# Validate arguments
-if [ $# -lt 4 ]; then
+# Parse arguments
+MODE=""
+BASE_SHA=""
+HEAD_SHA=""
+PLAN_FILE="-"
+DESCRIPTION=""
+PROMPT=""
+CONTEXT=""
+DRY_RUN=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --mode=*)
+            MODE="${1#*=}"
+            shift
+            ;;
+        --base-sha=*)
+            BASE_SHA="${1#*=}"
+            shift
+            ;;
+        --head-sha=*)
+            HEAD_SHA="${1#*=}"
+            shift
+            ;;
+        --plan-file=*)
+            PLAN_FILE="${1#*=}"
+            shift
+            ;;
+        --description=*)
+            DESCRIPTION="${1#*=}"
+            shift
+            ;;
+        --prompt=*)
+            PROMPT="${1#*=}"
+            shift
+            ;;
+        --context=*)
+            CONTEXT="${1#*=}"
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        *)
+            echo "Error: Unknown argument: $1" >&2
+            show_usage
+            exit 1
+            ;;
+    esac
+done
+
+# Validate mode is provided
+if [ -z "$MODE" ]; then
+    echo "Error: --mode is required" >&2
     show_usage
     exit 1
 fi
 
-BASE_SHA="$1"
-HEAD_SHA="$2"
-PLAN_FILE="$3"
-DESCRIPTION="$4"
+# Validate mode value
+case "$MODE" in
+    code-review|general-prompt)
+        # Valid modes
+        ;;
+    *)
+        echo "Error: Invalid mode '$MODE'. Must be 'code-review' or 'general-prompt'" >&2
+        show_usage
+        exit 1
+        ;;
+esac
 
-# Check for --dry-run flag (for testing)
-DRY_RUN=false
-if [ "${5:-}" = "--dry-run" ]; then
-    DRY_RUN=true
+# Validate mode-specific required arguments
+if [ "$MODE" = "code-review" ]; then
+    if [ -z "$BASE_SHA" ]; then
+        echo "Error: --base-sha is required for code-review mode" >&2
+        show_usage
+        exit 1
+    fi
+    if [ -z "$HEAD_SHA" ]; then
+        echo "Error: --head-sha is required for code-review mode" >&2
+        show_usage
+        exit 1
+    fi
+elif [ "$MODE" = "general-prompt" ]; then
+    if [ -z "$PROMPT" ]; then
+        echo "Error: --prompt is required for general-prompt mode" >&2
+        show_usage
+        exit 1
+    fi
 fi
 
 # === Reviewer Functions ===
