@@ -1,5 +1,32 @@
 # Superpowers Release Notes
 
+## v3.8.0 (2025-12-13)
+
+### Added
+
+- **Multi-Agent Consensus Framework**: New reusable infrastructure for getting diverse AI perspectives
+  - Mode-based interface: code-review and general-prompt modes
+  - Shared consensus algorithm with word overlap and file matching
+  - Three-tier output: High Priority (all agree), Medium (majority 2/3), Consider (single)
+  - Graceful degradation: works with 1, 2, or 3 reviewers (Claude required)
+  - Configurable similarity threshold via SIMILARITY_THRESHOLD env var
+  - New skill at `skills/multi-agent-consensus/`
+  - Complete test suite and documentation
+
+### Changed
+
+- **Requesting Code Review**: Migrated to use multi-agent-consensus framework
+  - Now calls `multi-consensus.sh --mode=code-review`
+  - Original `multi-review.sh` logic extracted into reusable framework
+  - Functionality unchanged, improved architecture
+
+- **Brainstorming**: Added optional multi-agent design validation
+  - After design approval, can invoke multi-agent review
+  - Catches architectural flaws and over-engineering before implementation
+  - Uses STRONG/MODERATE/WEAK severity labels for design feedback
+
+---
+
 ## v3.7.0 (2025-12-13)
 
 ### Added

@@ -111,11 +111,12 @@ Fetch and follow instructions from https://raw.githubusercontent.com/obra/superp
 - **defense-in-depth** - Multiple validation layers
 
 **Collaboration**
-- **brainstorming** - Socratic design refinement
+- **brainstorming** - Socratic design refinement with optional multi-agent validation
+- **multi-agent-consensus** - Reusable Claude/Gemini/Codex consensus infrastructure
 - **writing-plans** - Detailed implementation plans
 - **executing-plans** - Batch execution with checkpoints
 - **dispatching-parallel-agents** - Concurrent subagent workflows
-- **requesting-code-review** - Multi-reviewer consensus (Claude/Gemini/Codex)
+- **requesting-code-review** - Multi-reviewer code review using consensus framework
 - **receiving-code-review** - Responding to feedback
 - **using-git-worktrees** - Parallel development branches
 - **finishing-a-development-branch** - Merge/PR decision workflow
