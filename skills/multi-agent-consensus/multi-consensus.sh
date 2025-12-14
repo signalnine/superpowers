@@ -168,23 +168,24 @@ launch_gemini_review() {
         return 1
     fi
 
-    # Build review prompt
-    local prompt="You are a senior code reviewer. Review the following code change and provide structured feedback.
+    # Build review prompt with dynamic severity labels
+    local prompt="You are a senior code reviewer. Review the following and provide structured feedback.
 
 $context
 
 Please provide your review in the following format:
 
-## Critical Issues
-- [list critical issues here, or write 'None']
+## ${SEVERITY_HIGH} Issues
+- [list ${SEVERITY_HIGH} issues here, or write 'None']
 
-## Important Issues
-- [list important issues here, or write 'None']
+## ${SEVERITY_MED} Issues
+- [list ${SEVERITY_MED} issues here, or write 'None']
 
-## Suggestions
-- [list suggestions here, or write 'None']
+## ${SEVERITY_LOW}
+- [list ${SEVERITY_LOW} here, or write 'None']
 
-Be specific and include file names and line numbers when possible."
+Each issue should be on its own line starting with a dash (-).
+Use format: ${SEVERITY_HIGH}|description or ${SEVERITY_MED}|description or ${SEVERITY_LOW}|description"
 
     # Invoke Gemini CLI with timeout (using positional prompt, model flag removed as it's not needed)
     timeout 120s gemini "$prompt" 2>&1 || {
@@ -212,22 +213,23 @@ CODEX_MCP_INSTRUCTION
 
 The assistant should use the mcp__codex-cli__codex tool with this prompt:
 
-"You are a senior code reviewer. Review the following code change and provide structured feedback.
+"You are a senior code reviewer. Review the following and provide structured feedback.
 
 $context
 
 Please provide your review in the following format:
 
-## Critical Issues
-- [list critical issues here, or write 'None']
+## ${SEVERITY_HIGH} Issues
+- [list ${SEVERITY_HIGH} issues here, or write 'None']
 
-## Important Issues
-- [list important issues here, or write 'None']
+## ${SEVERITY_MED} Issues
+- [list ${SEVERITY_MED} issues here, or write 'None']
 
-## Suggestions
-- [list suggestions here, or write 'None']
+## ${SEVERITY_LOW}
+- [list ${SEVERITY_LOW} here, or write 'None']
 
-Be specific and include file names and line numbers when possible."
+Each issue should be on its own line starting with a dash (-).
+Use format: ${SEVERITY_HIGH}|description or ${SEVERITY_MED}|description or ${SEVERITY_LOW}|description"
 
 EOF
 }
@@ -241,13 +243,19 @@ parse_issues() {
     local current_severity=""
 
     while IFS= read -r line; do
-        # Detect severity headers
-        if echo "$line" | grep -q "^## Critical Issues"; then
+        # Detect severity headers - handle both code-review and general-prompt labels
+        if echo "$line" | grep -qE "^## (Critical|CRITICAL) Issues?"; then
             current_severity="Critical"
-        elif echo "$line" | grep -q "^## Important Issues"; then
+        elif echo "$line" | grep -qE "^## (Important|IMPORTANT) Issues?"; then
             current_severity="Important"
-        elif echo "$line" | grep -q "^## Suggestions"; then
+        elif echo "$line" | grep -qE "^## (Suggestions?|SUGGESTION)"; then
             current_severity="Suggestion"
+        elif echo "$line" | grep -qE "^## (Strong|STRONG) Issues?"; then
+            current_severity="Critical"  # Map STRONG to Critical for consensus
+        elif echo "$line" | grep -qE "^## (Moderate|MODERATE) Issues?"; then
+            current_severity="Important"  # Map MODERATE to Important
+        elif echo "$line" | grep -qE "^## (Weak|WEAK)"; then
+            current_severity="Suggestion"  # Map WEAK to Suggestion
         # Extract issue lines (start with -)
         elif echo "$line" | grep -q "^-"; then
             issue_desc=$(echo "$line" | sed 's/^- *//')
@@ -486,6 +494,26 @@ aggregate_consensus() {
     rm -f "$all_issues_file" "$consensus_all" "$consensus_majority" "$consensus_single"
 }
 
+# === Severity Label Functions ===
+
+# Get severity labels based on mode
+get_severity_labels() {
+    local mode="$1"
+
+    case "$mode" in
+        code-review)
+            echo "CRITICAL IMPORTANT SUGGESTION"
+            ;;
+        general-prompt)
+            echo "STRONG MODERATE WEAK"
+            ;;
+        *)
+            echo "Error: Unknown mode for severity labels: $mode" >&2
+            exit 1
+            ;;
+    esac
+}
+
 # === Context Preparation Functions ===
 
 # Prepare context for code review mode
@@ -582,6 +610,12 @@ if [ "$MODE" = "code-review" ]; then
 elif [ "$MODE" = "general-prompt" ]; then
     prepare_general_prompt_context "$PROMPT" "$CONTEXT"
 fi
+
+# Get severity labels for current mode
+SEVERITY_LABELS=$(get_severity_labels "$MODE")
+SEVERITY_HIGH=$(echo "$SEVERITY_LABELS" | cut -d' ' -f1)
+SEVERITY_MED=$(echo "$SEVERITY_LABELS" | cut -d' ' -f2)
+SEVERITY_LOW=$(echo "$SEVERITY_LABELS" | cut -d' ' -f3)
 
 # Exit early if --dry-run (for testing)
 if [ "${DRY_RUN:-false}" = "true" ]; then
