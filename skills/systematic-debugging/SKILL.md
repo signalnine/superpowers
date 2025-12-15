@@ -167,6 +167,76 @@ You MUST complete each phase before proceeding to the next.
    - Ask for help
    - Research more
 
+### Multi-Agent Consensus Validation (Recommended)
+
+Before implementing fix, validate root cause with multiple agents.
+
+**When to use:**
+- Complex bugs with unclear root cause
+- Multiple possible explanations
+- High-risk fixes (production, critical systems)
+- Want validation before committing time to fix
+
+**When to skip:**
+- Obvious bugs (typos, simple logic errors)
+- Time-critical emergencies (but consider after fix)
+- Root cause has strong evidence and single explanation
+
+**How it works:**
+
+1. **Agent extracts context** from debugging session:
+   ```
+   ## Error Description
+   <User's initial bug report and symptoms>
+
+   ## Evidence Collected
+   <Stack traces, reproduction steps, logs analyzed>
+
+   ## Root Cause Hypothesis
+   <Current theory with reasoning>
+
+   ## Proposed Fix
+   <High-level fix approach>
+   ```
+
+2. **Invoke consensus:**
+   ```bash
+   skills/multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
+     --prompt="Review this root cause analysis. Does the hypothesis explain all observed symptoms? Are there alternative explanations we should consider? Are there gaps in the evidence? Rate your confidence in this diagnosis as STRONG/MODERATE/WEAK." \
+     --context="$DEBUGGING_CONTEXT"
+   ```
+
+3. **Display consensus results:**
+   - **High confidence**: "All/most reviewers agree. Proceed with fix."
+   - **Medium confidence**: "Moderate confidence. Concerns: <summary>. Proceed with caution."
+   - **Low confidence**: "Low confidence. Reviewers suggest: <alternatives>. Type 'override' to proceed or 'investigate' to gather more evidence."
+
+4. **Handle response:**
+   - High/medium → Continue to Phase 4
+   - Low + 'override' → Continue with warning
+   - Low + 'investigate' → Return to Phase 1 for more evidence
+
+**Output:** Detailed breakdown saved to `/tmp/consensus-XXXXXX.md`
+
+**Example:**
+
+```
+Phase 3 complete. Root cause hypothesis: Off-by-one error in loop initialization.
+
+Get multi-agent consensus on root cause? (recommended) [y/n]: y
+
+Running consensus (3 agents)...
+Stage 1: 3/3 reviewers responded
+Stage 2: Chairman synthesis complete
+
+Consensus: High confidence in root cause. All reviewers agree.
+- Claude: "Hypothesis explains symptoms, evidence supports conclusion"
+- Gemini: "Loop start value of 1 vs 0 matches off-by-one pattern"
+- Codex: "Strong evidence, no alternative explanations apparent"
+
+Proceed to Phase 4: Implementation
+```
+
 ### Phase 4: Implementation
 
 **Fix the root cause, not the symptom:**
