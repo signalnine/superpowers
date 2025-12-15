@@ -1,5 +1,45 @@
 # Superpowers Release Notes
 
+## v3.10.0 - Consensus Validation for Debugging (Phase 2)
+
+**New:** Multi-agent consensus validation for debugging skills
+
+**What Changed:**
+- UPDATED: `systematic-debugging` - Optional consensus checkpoint after Phase 3 (Hypothesis Testing)
+- UPDATED: `root-cause-tracing` - Optional consensus checkpoint after tracing to root trigger
+- UPDATED: `multi-agent-consensus/README.md` - Added debugging integration examples (9-10)
+
+**Features:**
+- Auto-extraction of debugging context from conversation
+- Skill-specific prompts for hypothesis validation vs causal trace validation
+- Confidence-based response logic (override required for low confidence)
+- Recommended but optional (respects debugging flow)
+
+**Why:**
+- Validates root cause before implementing fix
+- Catches flawed reasoning (alternative explanations, gaps in evidence)
+- Prevents fixing wrong problem
+- Especially valuable for complex bugs, long causal chains, high-risk fixes
+
+**Usage:**
+
+After identifying root cause in debugging session, agent asks:
+```
+Get multi-agent consensus on root cause? (recommended) [y/n]
+```
+
+If yes:
+- Claude, Gemini, Codex independently review root cause analysis
+- Chairman synthesizes consensus with confidence level
+- High confidence → proceed
+- Low confidence → type 'override' or 'investigate' for more evidence
+
+**Builds on:** v3.9.0 (Phase 1 - consensus-synthesis.sh)
+
+**Next:** Phase 3+ (other skills integration as needed)
+
+---
+
 ## v3.9.0 (2025-12-14)
 
 ### Changed
