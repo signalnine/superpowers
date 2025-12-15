@@ -12,7 +12,7 @@ Different AI models have different strengths and weaknesses. Single agents may m
 
 **Key components:**
 - Mode-based interface (code-review vs general-prompt)
-- Shared consensus algorithm (word overlap + file matching)
+- Two-stage synthesis process (parallel analysis + chairman consensus)
 - Three-tier output (High/Medium/Consider priority)
 - Graceful degradation (works with 1, 2, or 3 reviewers)
 
@@ -96,7 +96,7 @@ Test your setup:
 
 ```bash
 # Test basic functionality (uses Claude only)
-./skills/multi-agent-consensus/test-multi-consensus.sh
+./skills/multi-agent-consensus/test-consensus-synthesis.sh
 
 # Test with actual reviewers
 echo "test" > /tmp/test.txt
@@ -111,7 +111,7 @@ git commit -m "change"
 HEAD=$(git rev-parse HEAD)
 
 # This will show which reviewers are available
-../path/to/skills/multi-agent-consensus/multi-consensus.sh --mode=code-review \
+../path/to/skills/multi-agent-consensus/consensus-synthesis.sh --mode=code-review \
   --base-sha="$BASE" --head-sha="$HEAD" --description="test"
 
 # Look for:
@@ -125,7 +125,7 @@ HEAD=$(git rev-parse HEAD)
 ### Code Review Mode
 
 ```bash
-skills/multi-agent-consensus/multi-consensus.sh --mode=code-review \
+skills/multi-agent-consensus/consensus-synthesis.sh --mode=code-review \
   --base-sha="abc123" \
   --head-sha="def456" \
   --plan-file="docs/plans/feature.md" \
@@ -135,7 +135,7 @@ skills/multi-agent-consensus/multi-consensus.sh --mode=code-review \
 ### General Prompt Mode
 
 ```bash
-skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+skills/multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
   --prompt="What could go wrong with this design?" \
   --context="$(cat design.md)"
 ```
@@ -161,9 +161,19 @@ Three-tier consensus report:
   - Codex: "issue text"
 ```
 
-## Configuration
+## How It Works
 
-- `SIMILARITY_THRESHOLD=60` - Word overlap threshold for matching issues (default 60%)
+**Stage 1: Parallel Independent Analysis**
+- Claude, Gemini, and Codex analyze the prompt independently
+- Each provides structured feedback (Critical/Important/Suggestions)
+- 30-second timeout per agent
+- Results collected from all successful agents
+
+**Stage 2: Chairman Synthesis**
+- Chairman agent (Claude → Gemini → Codex fallback) synthesizes consensus
+- Groups issues by agreement level
+- Highlights disagreements explicitly
+- Produces final three-tier report
 
 ## Dependencies
 
@@ -183,7 +193,7 @@ After design approval, offers multi-agent validation:
 ```bash
 DESIGN=$(cat docs/plans/2025-12-13-feature-design.md)
 
-skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+skills/multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
   --prompt="Review this design for architectural flaws, over-engineering, missing requirements, maintainability concerns, or testing gaps. Rate as STRONG/MODERATE/WEAK." \
   --context="$DESIGN"
 ```
@@ -192,7 +202,7 @@ skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
 
 Automatically uses consensus framework:
 ```bash
-skills/multi-agent-consensus/multi-consensus.sh --mode=code-review \
+skills/multi-agent-consensus/consensus-synthesis.sh --mode=code-review \
   --base-sha="abc123" --head-sha="def456" \
   --description="Add authentication feature"
 ```
@@ -203,7 +213,7 @@ skills/multi-agent-consensus/multi-consensus.sh --mode=code-review \
 
 Get consensus on technical choices:
 ```bash
-skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+skills/multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
   --prompt="Which approach is better for this use case and why? Rate confidence as STRONG/MODERATE/WEAK." \
   --context="Option A: Redis caching. Option B: In-memory caching. Use case: 1000 req/sec API with 5-minute session TTL."
 ```
@@ -214,7 +224,7 @@ Multiple perspectives on error causes:
 ```bash
 ERROR_CONTEXT="Stack trace shows null pointer in database connection pool. Happens randomly under load."
 
-skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+skills/multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
   --prompt="What could cause this error? List potential root causes. Rate likelihood as STRONG/MODERATE/WEAK." \
   --context="$ERROR_CONTEXT"
 ```
@@ -225,7 +235,7 @@ Consensus on security concerns:
 ```bash
 CODE=$(cat src/auth/login.py)
 
-skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+skills/multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
   --prompt="Identify security vulnerabilities in this authentication code. Rate severity as STRONG/MODERATE/WEAK." \
   --context="$CODE"
 ```
@@ -236,7 +246,7 @@ Get diverse perspectives on bottlenecks:
 ```bash
 PROFILE_DATA=$(cat profiling-results.txt)
 
-skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+skills/multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
   --prompt="Analyze this performance profile. What are the bottlenecks and how should they be addressed? Rate impact as STRONG/MODERATE/WEAK." \
   --context="$PROFILE_DATA"
 ```
@@ -247,7 +257,7 @@ Consensus on interface design:
 ```bash
 API_SPEC=$(cat openapi.yaml)
 
-skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+skills/multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
   --prompt="Review this API design for usability issues, inconsistencies, or missing endpoints. Rate importance as STRONG/MODERATE/WEAK." \
   --context="$API_SPEC"
 ```
@@ -258,7 +268,7 @@ Should you refactor and how:
 ```bash
 LEGACY_CODE=$(cat legacy-module.js)
 
-skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+skills/multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
   --prompt="Should this code be refactored? If yes, what approach? Rate urgency as STRONG/MODERATE/WEAK." \
   --context="$LEGACY_CODE"
 ```
@@ -266,7 +276,7 @@ skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
 ## Testing
 
 ```bash
-./skills/multi-agent-consensus/test-multi-consensus.sh
+./skills/multi-agent-consensus/test-consensus-synthesis.sh
 ```
 
 ## Migration from multi-review.sh
@@ -278,7 +288,7 @@ skills/requesting-code-review/multi-review.sh "$BASE" "$HEAD" "$PLAN" "$DESC"
 
 New code review calls:
 ```bash
-skills/multi-agent-consensus/multi-consensus.sh --mode=code-review \
+skills/multi-agent-consensus/consensus-synthesis.sh --mode=code-review \
   --base-sha="$BASE" --head-sha="$HEAD" \
   --plan-file="$PLAN" --description="$DESC"
 ```
