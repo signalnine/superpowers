@@ -414,17 +414,66 @@ execute_stage1() {
     ( run_codex "$prompt" "$codex_output" ) &
     codex_pid=$!
 
-    # Wait for all agents (they should complete quickly)
-    echo "  Waiting for agents..." >&2
+    # Wait for all agents with 30-second timeout
+    echo "  Waiting for agents (30s timeout)..." >&2
 
-    wait $claude_pid 2>/dev/null || true
-    local claude_exit=$?
+    local timeout_duration=30
+    local start_time=$(date +%s)
+    local claude_exit=1
+    local gemini_exit=1
+    local codex_exit=1
+    local claude_done=false
+    local gemini_done=false
+    local codex_done=false
 
-    wait $gemini_pid 2>/dev/null || true
-    local gemini_exit=$?
+    # Poll for completion with timeout
+    while true; do
+        local current_time=$(date +%s)
+        local elapsed=$((current_time - start_time))
 
-    wait $codex_pid 2>/dev/null || true
-    local codex_exit=$?
+        # Check if timeout exceeded
+        if [[ $elapsed -ge $timeout_duration ]]; then
+            echo "  Timeout reached (${timeout_duration}s)" >&2
+            # Kill any remaining processes (use SIGKILL to ensure termination)
+            kill -9 $claude_pid 2>/dev/null || true
+            kill -9 $gemini_pid 2>/dev/null || true
+            kill -9 $codex_pid 2>/dev/null || true
+            # Also kill any child processes
+            pkill -9 -P $claude_pid 2>/dev/null || true
+            pkill -9 -P $gemini_pid 2>/dev/null || true
+            pkill -9 -P $codex_pid 2>/dev/null || true
+            break
+        fi
+
+        # Check Claude
+        if [[ "$claude_done" == false ]] && ! kill -0 $claude_pid 2>/dev/null; then
+            wait $claude_pid 2>/dev/null || true
+            claude_exit=$?
+            claude_done=true
+        fi
+
+        # Check Gemini
+        if [[ "$gemini_done" == false ]] && ! kill -0 $gemini_pid 2>/dev/null; then
+            wait $gemini_pid 2>/dev/null || true
+            gemini_exit=$?
+            gemini_done=true
+        fi
+
+        # Check Codex
+        if [[ "$codex_done" == false ]] && ! kill -0 $codex_pid 2>/dev/null; then
+            wait $codex_pid 2>/dev/null || true
+            codex_exit=$?
+            codex_done=true
+        fi
+
+        # If all done, break early
+        if [[ "$claude_done" == true ]] && [[ "$gemini_done" == true ]] && [[ "$codex_done" == true ]]; then
+            break
+        fi
+
+        # Sleep briefly before next check
+        sleep 0.1
+    done
 
     # Read agent responses
     local claude_response=$(cat "$claude_output" 2>/dev/null || echo "")
@@ -495,6 +544,276 @@ execute_stage1() {
 }
 
 #############################################
+# Stage 2: Chairman Synthesis
+#############################################
+
+# Build Stage 2 chairman prompt for code review mode
+build_code_review_chairman_prompt() {
+    local description="$1"
+    local modified_files="$2"
+    local claude_response="$3"
+    local gemini_response="$4"
+    local codex_response="$5"
+    local claude_status="$6"
+    local gemini_status="$7"
+    local codex_status="$8"
+    local agents_succeeded="$9"
+
+    local prompt="# Code Review Consensus - Stage 2 Chairman Synthesis
+
+**Your Task:** Compile a consensus code review from multiple independent reviewers.
+
+**CRITICAL:** Report all issues mentioned by any reviewer. Group similar issues together, but if reviewers disagree about an issue, report the disagreement explicitly.
+
+**Change Description:** $description
+
+**Modified Files:**
+$modified_files
+
+**Reviews Received ($agents_succeeded of 3):**
+
+"
+
+    if [[ "$claude_status" == "success" ]]; then
+        prompt+="--- Claude Review ---
+$claude_response
+
+"
+    fi
+
+    if [[ "$gemini_status" == "success" ]]; then
+        prompt+="--- Gemini Review ---
+$gemini_response
+
+"
+    fi
+
+    if [[ "$codex_status" == "success" ]]; then
+        prompt+="--- Codex Review ---
+$codex_response
+
+"
+    fi
+
+    prompt+="**Instructions:**
+Compile a consensus report with three tiers:
+
+## High Priority - Multiple Reviewers Agree
+[Issues mentioned by 2+ reviewers - group similar issues]
+- [SEVERITY] Description
+  - Reviewer A: \"specific quote\"
+  - Reviewer B: \"specific quote\"
+
+## Medium Priority - Single Reviewer, Significant
+[Important/Critical issues from single reviewer]
+- [SEVERITY] Description
+  - Reviewer: \"quote\"
+
+## Consider - Suggestions
+[Suggestions from any reviewer]
+- [SUGGESTION] Description
+  - Reviewer: \"quote\"
+
+## Final Recommendation
+- If High Priority issues exist → \"Address high priority issues before merging\"
+- If only Medium Priority → \"Review medium priority concerns\"
+- If only Consider tier → \"Optional improvements suggested\"
+- If no issues → \"All reviewers approve - safe to merge\"
+
+Be direct. Group similar issues but preserve different perspectives.
+"
+
+    echo "$prompt"
+}
+
+# Build Stage 2 chairman prompt for general prompt mode
+build_general_chairman_prompt() {
+    local original_prompt="$1"
+    local claude_response="$2"
+    local gemini_response="$3"
+    local codex_response="$4"
+    local claude_status="$5"
+    local gemini_status="$6"
+    local codex_status="$7"
+    local agents_succeeded="$8"
+
+    local prompt="# General Analysis Consensus - Stage 2 Chairman Synthesis
+
+**Your Task:** Compile consensus from multiple independent analyses.
+
+**CRITICAL:** If analyses disagree or conflict, highlight disagreements explicitly. Do NOT smooth over conflicts. Conflicting views are valuable.
+
+**Original Question:**
+$original_prompt
+
+**Analyses Received ($agents_succeeded of 3):**
+
+"
+
+    if [[ "$claude_status" == "success" ]]; then
+        prompt+="--- Claude Analysis ---
+$claude_response
+
+"
+    fi
+
+    if [[ "$gemini_status" == "success" ]]; then
+        prompt+="--- Gemini Analysis ---
+$gemini_response
+
+"
+    fi
+
+    if [[ "$codex_status" == "success" ]]; then
+        prompt+="--- Codex Analysis ---
+$codex_response
+
+"
+    fi
+
+    prompt+="**Instructions:**
+Provide final consensus:
+
+## Areas of Agreement
+[What do reviewers agree on?]
+
+## Areas of Disagreement
+[Where do perspectives differ? Be explicit about conflicts.]
+
+## Confidence Level
+High / Medium / Low
+
+## Synthesized Recommendation
+[Incorporate all perspectives, noting disagreements where they exist]
+
+Be direct. Disagreement is valuable - report it clearly.
+"
+
+    echo "$prompt"
+}
+
+# Run chairman with given agent function
+run_chairman_agent() {
+    local agent_name="$1"
+    local prompt="$2"
+    local output_file="$3"
+
+    echo "  Trying $agent_name as chairman..." >&2
+
+    case "$agent_name" in
+        "Claude")
+            run_claude "$prompt" "$output_file"
+            return $?
+            ;;
+        "Gemini")
+            run_gemini "$prompt" "$output_file"
+            return $?
+            ;;
+        "Codex")
+            run_codex "$prompt" "$output_file"
+            return $?
+            ;;
+        *)
+            echo "Error: Unknown agent $agent_name" >&2
+            return 1
+            ;;
+    esac
+}
+
+# Execute Stage 2: Chairman synthesis with fallback
+execute_stage2() {
+    local chairman_prompt="$1"
+
+    echo "" >&2
+    echo "Stage 2: Chairman synthesis..." >&2
+
+    # Create temp file for chairman output
+    local chairman_output=$(mktemp)
+
+    # Try chairman agents in order: Claude → Gemini → Codex
+    local chairman_agents=("Claude" "Gemini" "Codex")
+    local chairman_succeeded=false
+    local chairman_name=""
+    local chairman_response=""
+
+    for agent in "${chairman_agents[@]}"; do
+        # Run chairman agent with 30s timeout
+        local timeout_duration=30
+        local start_time=$(date +%s)
+        local agent_pid=""
+
+        # Launch chairman agent in background
+        ( run_chairman_agent "$agent" "$chairman_prompt" "$chairman_output" ) &
+        agent_pid=$!
+
+        # Wait for completion with timeout
+        local agent_done=false
+        local agent_exit=1
+
+        while true; do
+            local current_time=$(date +%s)
+            local elapsed=$((current_time - start_time))
+
+            # Check if timeout exceeded
+            if [[ $elapsed -ge $timeout_duration ]]; then
+                echo "  $agent: TIMEOUT (${timeout_duration}s)" >&2
+                # Kill process and children
+                kill -9 $agent_pid 2>/dev/null || true
+                pkill -9 -P $agent_pid 2>/dev/null || true
+                break
+            fi
+
+            # Check if agent completed
+            if ! kill -0 $agent_pid 2>/dev/null; then
+                wait $agent_pid 2>/dev/null || true
+                agent_exit=$?
+                agent_done=true
+                break
+            fi
+
+            # Sleep briefly before next check
+            sleep 0.1
+        done
+
+        # Check if agent succeeded
+        if [[ "$agent_done" == true ]] && [[ $agent_exit -eq 0 ]]; then
+            chairman_response=$(cat "$chairman_output" 2>/dev/null || echo "")
+
+            # Validate response is not empty and not an error message
+            if [[ -n "$chairman_response" ]] && \
+               ! echo "$chairman_response" | grep -q "GEMINI_NOT_AVAILABLE\|GEMINI_TIMEOUT\|CODEX_MCP_REQUIRED"; then
+                chairman_succeeded=true
+                chairman_name="$agent"
+                echo "  $agent: SUCCESS" >&2
+                break
+            else
+                echo "  $agent: FAILED (invalid response)" >&2
+            fi
+        elif [[ "$agent_done" == false ]]; then
+            # Timeout already reported above
+            :
+        else
+            echo "  $agent: FAILED" >&2
+        fi
+    done
+
+    # Cleanup temp file
+    rm -f "$chairman_output"
+
+    # Check if chairman succeeded
+    if [[ "$chairman_succeeded" == false ]]; then
+        echo "Error: All chairman agents failed" >&2
+        return 1
+    fi
+
+    # Export results
+    STAGE2_CHAIRMAN_NAME="$chairman_name"
+    STAGE2_CHAIRMAN_RESPONSE="$chairman_response"
+
+    return 0
+}
+
+#############################################
 # Main Execution
 #############################################
 
@@ -520,31 +839,156 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
-# Stage 2 will be implemented in Task 3
-echo "" >&2
-echo "Stage 1 complete. Stage 2 (chairman synthesis) not yet implemented." >&2
-echo "Agents succeeded: $STAGE1_AGENTS_SUCCEEDED/3" >&2
+# Build Stage 2 chairman prompt based on mode
+STAGE2_PROMPT=""
 
-# For now, just output Stage 1 results
-echo ""
-echo "# Stage 1 Results"
-echo ""
+if [[ "$MODE" == "code-review" ]]; then
+    # Get modified files for chairman prompt
+    MODIFIED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" 2>&1)
+
+    STAGE2_PROMPT=$(build_code_review_chairman_prompt \
+        "$DESCRIPTION" \
+        "$MODIFIED_FILES" \
+        "$STAGE1_CLAUDE_RESPONSE" \
+        "$STAGE1_GEMINI_RESPONSE" \
+        "$STAGE1_CODEX_RESPONSE" \
+        "$STAGE1_CLAUDE_STATUS" \
+        "$STAGE1_GEMINI_STATUS" \
+        "$STAGE1_CODEX_STATUS" \
+        "$STAGE1_AGENTS_SUCCEEDED")
+elif [[ "$MODE" == "general-prompt" ]]; then
+    STAGE2_PROMPT=$(build_general_chairman_prompt \
+        "$PROMPT" \
+        "$STAGE1_CLAUDE_RESPONSE" \
+        "$STAGE1_GEMINI_RESPONSE" \
+        "$STAGE1_CODEX_RESPONSE" \
+        "$STAGE1_CLAUDE_STATUS" \
+        "$STAGE1_GEMINI_STATUS" \
+        "$STAGE1_CODEX_STATUS" \
+        "$STAGE1_AGENTS_SUCCEEDED")
+fi
+
+# Execute Stage 2
+execute_stage2 "$STAGE2_PROMPT"
+if [[ $? -ne 0 ]]; then
+    echo "Error: Stage 2 failed" >&2
+    exit 1
+fi
+
+# Create output file with full context
+OUTPUT_FILE=$(mktemp /tmp/consensus-XXXXXX.md)
+
+# Write comprehensive output to file
+cat > "$OUTPUT_FILE" <<EOF
+# Multi-Agent Consensus Analysis
+
+**Mode:** $MODE
+**Date:** $(date '+%Y-%m-%d %H:%M:%S')
+**Agents Succeeded:** $STAGE1_AGENTS_SUCCEEDED/3
+**Chairman:** $STAGE2_CHAIRMAN_NAME
+
+---
+
+EOF
+
+# Add mode-specific context
+if [[ "$MODE" == "code-review" ]]; then
+    cat >> "$OUTPUT_FILE" <<EOF
+## Change Description
+
+$DESCRIPTION
+
+## Commits
+
+$BASE_SHA..$HEAD_SHA
+
+## Modified Files
+
+$MODIFIED_FILES
+
+---
+
+EOF
+else
+    cat >> "$OUTPUT_FILE" <<EOF
+## Original Question
+
+$PROMPT
+
+EOF
+    if [[ -n "$CONTEXT" ]]; then
+        cat >> "$OUTPUT_FILE" <<EOF
+
+## Context
+
+$CONTEXT
+
+EOF
+    fi
+    cat >> "$OUTPUT_FILE" <<EOF
+
+---
+
+EOF
+fi
+
+# Add Stage 1 responses
+cat >> "$OUTPUT_FILE" <<EOF
+## Stage 1: Independent Analyses
+
+EOF
+
 if [[ "$STAGE1_CLAUDE_STATUS" == "success" ]]; then
-    echo "## Claude Response"
-    echo "$STAGE1_CLAUDE_RESPONSE"
-    echo ""
+    cat >> "$OUTPUT_FILE" <<EOF
+### Claude Review
+
+$STAGE1_CLAUDE_RESPONSE
+
+---
+
+EOF
 fi
 
 if [[ "$STAGE1_GEMINI_STATUS" == "success" ]]; then
-    echo "## Gemini Response"
-    echo "$STAGE1_GEMINI_RESPONSE"
-    echo ""
+    cat >> "$OUTPUT_FILE" <<EOF
+### Gemini Review
+
+$STAGE1_GEMINI_RESPONSE
+
+---
+
+EOF
 fi
 
 if [[ "$STAGE1_CODEX_STATUS" == "success" ]]; then
-    echo "## Codex Response"
-    echo "$STAGE1_CODEX_RESPONSE"
-    echo ""
+    cat >> "$OUTPUT_FILE" <<EOF
+### Codex Review
+
+$STAGE1_CODEX_RESPONSE
+
+---
+
+EOF
 fi
+
+# Add Stage 2 consensus
+cat >> "$OUTPUT_FILE" <<EOF
+## Stage 2: Chairman Consensus (by $STAGE2_CHAIRMAN_NAME)
+
+$STAGE2_CHAIRMAN_RESPONSE
+
+EOF
+
+# Display final consensus to console
+echo "" >&2
+echo "========================================" >&2
+echo "CONSENSUS COMPLETE" >&2
+echo "========================================" >&2
+echo "" >&2
+
+echo "$STAGE2_CHAIRMAN_RESPONSE"
+
+echo "" >&2
+echo "Detailed breakdown saved to: $OUTPUT_FILE" >&2
 
 exit 0
