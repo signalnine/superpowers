@@ -38,20 +38,20 @@ DESCRIPTION="Brief description of what was implemented"
 **3. Run multi-agent consensus:**
 
 ```bash
-../multi-agent-consensus/multi-consensus.sh --mode=code-review \
+../multi-agent-consensus/consensus-synthesis.sh --mode=code-review \
   --base-sha="$BASE_SHA" \
   --head-sha="$HEAD_SHA" \
   --plan-file="$PLAN_FILE" \
   --description="$DESCRIPTION"
 ```
 
-The framework automatically:
-- Launches Claude, Gemini, and Codex reviewers in parallel
-- Aggregates results using consensus algorithm (file matching + 60% word overlap)
+The framework uses a two-stage process:
+- **Stage 1:** Launches Claude, Gemini, and Codex reviewers in parallel for independent analysis
+- **Stage 2:** Chairman agent (Claude → Gemini → Codex fallback) synthesizes consensus
 - Groups issues by agreement level:
-  - **High Priority** - All reviewers agree (3/3 or 2/2 if one unavailable)
-  - **Medium Priority** - Majority flagged (2/3)
-  - **Consider** - Single reviewer mentioned
+  - **High Priority** - Multiple reviewers agree
+  - **Medium Priority** - Single reviewer, significant issue
+  - **Consider** - Suggestions from any reviewer
 - Gracefully degrades if reviewers are unavailable
 
 **4. Act on consensus feedback:**
@@ -82,7 +82,7 @@ PLAN_FILE="docs/plans/deployment-plan.md"
 DESCRIPTION="Added verifyIndex() and repairIndex() with 4 issue types"
 
 # Run multi-agent consensus
-[Invoke ../multi-agent-consensus/multi-consensus.sh]
+[Invoke ../multi-agent-consensus/consensus-synthesis.sh]
 
 # Framework produces consensus report:
 ## High Priority - All Reviewers Agree
@@ -157,7 +157,7 @@ You: [Fix magic number]
 
 ## Files
 
-- `../multi-agent-consensus/multi-consensus.sh` - Multi-agent consensus framework (code-review mode)
+- `../multi-agent-consensus/consensus-synthesis.sh` - Multi-agent consensus framework (code-review mode)
 - `code-reviewer.md` - Claude agent definition (legacy, for single-reviewer mode)
-- `multi-review.sh` - Legacy script (deprecated, use multi-consensus.sh instead)
+- `multi-review.sh` - Legacy script (deprecated, use consensus-synthesis.sh instead)
 - `README.md` - Architecture documentation
