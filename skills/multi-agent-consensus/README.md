@@ -71,22 +71,92 @@ Three-tier consensus report:
 
 ## Integration Examples
 
-**Brainstorming (design validation):**
+### Already Integrated
 
+**1. Brainstorming (design validation)**
+
+After design approval, offers multi-agent validation:
 ```bash
 DESIGN=$(cat docs/plans/2025-12-13-feature-design.md)
 
 skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
-  --prompt="Review this design for flaws, over-engineering, or missing requirements. Rate as STRONG/MODERATE/WEAK." \
+  --prompt="Review this design for architectural flaws, over-engineering, missing requirements, maintainability concerns, or testing gaps. Rate as STRONG/MODERATE/WEAK." \
   --context="$DESIGN"
 ```
 
-**Systematic Debugging (root cause analysis):**
+**2. Requesting Code Review**
 
+Automatically uses consensus framework:
+```bash
+skills/multi-agent-consensus/multi-consensus.sh --mode=code-review \
+  --base-sha="abc123" --head-sha="def456" \
+  --description="Add authentication feature"
+```
+
+### Ready to Integrate
+
+**3. Architecture Decisions**
+
+Get consensus on technical choices:
 ```bash
 skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
-  --prompt="What could cause this error? Analyze root causes." \
-  --context="Error log: $ERROR_LOG"
+  --prompt="Which approach is better for this use case and why? Rate confidence as STRONG/MODERATE/WEAK." \
+  --context="Option A: Redis caching. Option B: In-memory caching. Use case: 1000 req/sec API with 5-minute session TTL."
+```
+
+**4. Debugging (root cause analysis)**
+
+Multiple perspectives on error causes:
+```bash
+ERROR_CONTEXT="Stack trace shows null pointer in database connection pool. Happens randomly under load."
+
+skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+  --prompt="What could cause this error? List potential root causes. Rate likelihood as STRONG/MODERATE/WEAK." \
+  --context="$ERROR_CONTEXT"
+```
+
+**5. Security Review**
+
+Consensus on security concerns:
+```bash
+CODE=$(cat src/auth/login.py)
+
+skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+  --prompt="Identify security vulnerabilities in this authentication code. Rate severity as STRONG/MODERATE/WEAK." \
+  --context="$CODE"
+```
+
+**6. Performance Optimization**
+
+Get diverse perspectives on bottlenecks:
+```bash
+PROFILE_DATA=$(cat profiling-results.txt)
+
+skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+  --prompt="Analyze this performance profile. What are the bottlenecks and how should they be addressed? Rate impact as STRONG/MODERATE/WEAK." \
+  --context="$PROFILE_DATA"
+```
+
+**7. API Design Review**
+
+Consensus on interface design:
+```bash
+API_SPEC=$(cat openapi.yaml)
+
+skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+  --prompt="Review this API design for usability issues, inconsistencies, or missing endpoints. Rate importance as STRONG/MODERATE/WEAK." \
+  --context="$API_SPEC"
+```
+
+**8. Refactoring Decisions**
+
+Should you refactor and how:
+```bash
+LEGACY_CODE=$(cat legacy-module.js)
+
+skills/multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+  --prompt="Should this code be refactored? If yes, what approach? Rate urgency as STRONG/MODERATE/WEAK." \
+  --context="$LEGACY_CODE"
 ```
 
 ## Testing

@@ -108,7 +108,7 @@ Fetch and follow instructions from https://raw.githubusercontent.com/obra/superp
 
 **Collaboration**
 - **brainstorming** - Socratic design refinement with optional multi-agent validation
-- **multi-agent-consensus** - Reusable Claude/Gemini/Codex consensus infrastructure
+- **multi-agent-consensus** - Get consensus from Claude/Gemini/Codex on any prompt (design validation, architecture decisions, debugging, code review)
 - **writing-plans** - Detailed implementation plans
 - **executing-plans** - Batch execution with checkpoints
 - **dispatching-parallel-agents** - Concurrent subagent workflows
