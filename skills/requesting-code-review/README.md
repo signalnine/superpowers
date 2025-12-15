@@ -5,7 +5,7 @@
 **The multi-review.sh script has been migrated to the multi-agent-consensus framework.**
 
 - **Old location:** `skills/requesting-code-review/multi-review.sh` (deprecated)
-- **New location:** `skills/multi-agent-consensus/multi-consensus.sh --mode=code-review`
+- **New location:** `skills/multi-agent-consensus/consensus-synthesis.sh --mode=code-review`
 
 The requesting-code-review skill now uses the new framework for all multi-agent reviews.
 

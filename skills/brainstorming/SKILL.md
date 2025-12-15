@@ -58,7 +58,7 @@ If yes:
    ```bash
    DESIGN_TEXT=$(cat "docs/plans/YYYY-MM-DD-<topic>-design.md")
 
-   ../multi-agent-consensus/multi-consensus.sh --mode=general-prompt \
+   ../multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
      --prompt="Review this software design..." \
      --context="$DESIGN_TEXT"
    ```
