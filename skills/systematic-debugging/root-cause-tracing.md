@@ -127,6 +127,76 @@ Runs tests one-by-one, stops at first polluter. See script for usage.
 - Layer 3: NODE_ENV guard refuses git init outside tmpdir
 - Layer 4: Stack trace logging before git init
 
+### Multi-Agent Consensus Validation (Recommended)
+
+Before implementing fix, validate the traced causal path with multiple agents.
+
+**When to use:**
+- Long causal chains with multiple components
+- Unclear if traced to true root vs intermediate cause
+- Multiple possible root triggers
+- High-risk fixes
+
+**When to skip:**
+- Short, obvious causal chain (1-2 steps)
+- Single clear trigger point
+- Time-critical emergencies
+
+**How it works:**
+
+1. **Agent extracts traced path:**
+   ```
+   ## Error Description
+   <Symptom observed deep in call stack>
+
+   ## Evidence Collected
+   <Traced path, stack traces, reproduction steps>
+
+   ## Root Cause Hypothesis
+   <Original trigger identified>
+
+   ## Proposed Fix
+   <Fix at trigger point>
+   ```
+
+2. **Invoke consensus:**
+   ```bash
+   skills/multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
+     --prompt="Review this causal trace from symptom to root trigger. Is the traced path complete and correct? Are there missing causal links? Could the symptom have a different root trigger? Rate your confidence in this trace as STRONG/MODERATE/WEAK." \
+     --context="$TRACE_CONTEXT"
+   ```
+
+3. **Display consensus results:**
+   - **High confidence**: "All/most reviewers agree with traced path. Proceed with fix at root."
+   - **Medium confidence**: "Moderate confidence. Concerns: <summary>. Proceed with caution."
+   - **Low confidence**: "Low confidence. Reviewers suggest: <alternative paths>. Type 'override' to proceed or 'trace' to continue tracing."
+
+4. **Handle response:**
+   - High/medium → Fix at identified root trigger
+   - Low + 'override' → Fix with warning
+   - Low + 'trace' → Continue tracing backward
+
+**Output:** Detailed breakdown saved to `/tmp/consensus-XXXXXX.md`
+
+**Example:**
+
+```
+Root trigger found: Test setup doesn't initialize projectDir.
+
+Get multi-agent consensus on root cause? (recommended) [y/n]: y
+
+Running consensus (3 agents)...
+Stage 1: 3/3 reviewers responded
+Stage 2: Chairman synthesis complete
+
+Consensus: High confidence in traced path.
+- Claude: "Causal chain complete: empty projectDir → init fails"
+- Gemini: "Trace correctly identifies root in test setup"
+- Codex: "No missing links, fix at setup is appropriate"
+
+Proceed with fix at root trigger.
+```
+
 ## Key Principle
 
 ```dot
