@@ -1,5 +1,34 @@
 # Superpowers Release Notes
 
+## v3.9.0 (2025-12-14)
+
+### Changed
+
+- **Multi-Agent Consensus Framework**: Replaced word-clustering algorithm with two-stage synthesis approach
+  - **Stage 1**: Parallel independent analysis from Claude, Gemini, and Codex (30s timeout each)
+  - **Stage 2**: Chairman agent (Claude → Gemini → Codex fallback) synthesizes final consensus (30s timeout)
+  - New script: `consensus-synthesis.sh` (replaces `multi-consensus.sh`)
+  - Consensus now evaluates actual agreement vs keyword matching (fixes semantic negation failures)
+  - Explicitly reports disagreements between reviewers
+  - Output saved to `/tmp/consensus-XXXXXX.md` with full context and all analyses
+  - Comprehensive test suite: 30 tests (11 argument parsing + 11 Stage 1 + 8 Stage 2)
+
+### Removed
+
+- **Word-Clustering Consensus**: Removed `multi-consensus.sh` and `test-multi-consensus.sh`
+  - 60% word overlap threshold no longer used
+  - File matching heuristics replaced by LLM synthesis
+  - Simpler algorithm, better quality output
+
+### Updated
+
+- **Requesting Code Review**: Now calls `consensus-synthesis.sh --mode=code-review`
+- **Brainstorming**: Now calls `consensus-synthesis.sh --mode=general-prompt`
+- **README**: All 8 integration examples updated to use `consensus-synthesis.sh`
+- **SKILL.md**: Documentation updated to describe two-stage synthesis process
+
+---
+
 ## v3.8.0 (2025-12-13)
 
 ### Added
