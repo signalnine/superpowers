@@ -273,6 +273,78 @@ skills/multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
   --context="$LEGACY_CODE"
 ```
 
+**9. Debugging (systematic-debugging)**
+
+Validate root cause hypothesis before implementing fix:
+
+```bash
+# Example debugging context
+CONTEXT=$(cat << 'EOF'
+## Error Description
+Test fails: "Expected 5, got 3"
+All calculation tests fail with off-by-two errors
+Started after recent refactor of calculation logic
+
+## Evidence Collected
+- Reproduction: 100% failure rate on TestCase.test_calculation
+- Stack trace points to calculation() in math.py:42
+- Git diff shows loop initialization changed from 0 to 1
+- Manual trace confirms loop runs one fewer iteration than expected
+
+## Root Cause Hypothesis
+Off-by-two error introduced in refactor - loop starts at 1 instead of 0.
+This causes calculation to skip first two elements (index 0 and 1).
+
+## Proposed Fix
+Change loop initialization from `for i in range(1, len(arr))` to `for i in range(len(arr))`
+EOF
+)
+
+skills/multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
+  --prompt="Review this root cause analysis. Does the hypothesis explain all observed symptoms? Are there alternative explanations we should consider? Are there gaps in the evidence? Rate your confidence in this diagnosis as STRONG/MODERATE/WEAK." \
+  --context="$CONTEXT"
+```
+
+**10. Debugging (root-cause-tracing)**
+
+Validate traced causal path from symptom to root trigger:
+
+```bash
+# Example tracing context
+CONTEXT=$(cat << 'EOF'
+## Error Description
+Git init fails with "directory not found: /Users/jesse/project/packages/core"
+Error occurs deep in execution (WorktreeManager.createWorktree)
+
+## Evidence Collected
+Traced backward through call stack:
+1. Error at: git init in WorktreeManager.createWorktree() line 67
+2. Called by: Session.initializeWorkspace() line 123
+3. Called by: Session.create() line 45
+4. Called by: test Project.create() line 12
+5. Root trigger: Test doesn't initialize projectDir before calling Project.create()
+   - projectDir passed as empty string ''
+   - Empty string propagates through all calls
+   - Reaches git init as invalid path
+
+## Root Cause Hypothesis
+Test setup missing: projectDir = '/tmp/test-project' assignment before Project.create()
+Test assumes projectDir is initialized but it's not.
+
+## Proposed Fix
+Add to test setup:
+```
+projectDir = '/tmp/test-project'
+fs.mkdirSync(projectDir)
+```
+EOF
+)
+
+skills/multi-agent-consensus/consensus-synthesis.sh --mode=general-prompt \
+  --prompt="Review this causal trace from symptom to root trigger. Is the traced path complete and correct? Are there missing causal links? Could the symptom have a different root trigger? Rate your confidence in this trace as STRONG/MODERATE/WEAK." \
+  --context="$CONTEXT"
+```
+
 ## Testing
 
 ```bash
