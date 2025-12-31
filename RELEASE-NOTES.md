@@ -1,5 +1,90 @@
 # Superpowers Release Notes
 
+## v4.1.0 (2025-12-31) - SignalNine Fork
+
+### New Features
+
+**Multi-Agent Consensus Framework**
+
+Comprehensive multi-agent consensus framework for diverse AI perspectives:
+
+- **New `multi-agent-consensus` skill** - Reusable infrastructure for consensus synthesis from Claude, Gemini, and Codex
+- **Two-stage consensus synthesis:**
+  - Stage 1: Parallel independent analysis from all three agents
+  - Stage 2: Chairman agent (with fallback chain) synthesizes final consensus
+- **Two operational modes:**
+  - `code-review` mode: Reviews git diffs with plan context
+  - `general-prompt` mode: Analyzes questions with optional context
+- **Graceful degradation:** Works with 1, 2, or 3 agents (minimum 1/3 required)
+- **Configurable timeouts:** Environment variables and CLI flags for both stages (default: 60s each)
+- **Complete testing:** 33 tests covering all modes, consensus logic, and timeout enforcement
+- **Comprehensive documentation:** Implementation plans, architecture docs, and usage examples
+
+**Enhanced Consensus Timeouts**
+
+Improved timeout configuration for real-world LLM API latency:
+
+- **Increased default timeouts:** 30s → 60s for both stages (2x safety margin)
+- **Covers P95-P99 API latency scenarios**
+- **Configurable via:**
+  - Environment variables: `CONSENSUS_STAGE1_TIMEOUT`, `CONSENSUS_STAGE2_TIMEOUT`
+  - CLI flags: `--stage1-timeout=SEC`, `--stage2-timeout=SEC`
+  - CLI flags override environment variables
+- **Reduces timeout failures:** From ~15-25% to <5% for complex prompts
+- **Backward compatible:** Fully compatible with existing code
+- **Detailed analysis:** `TIMEOUT-ANALYSIS.md` with expected API latencies and recommendations
+
+**Consensus-Enhanced Debugging Skills**
+
+Integrated multi-agent consensus validation into debugging workflows:
+
+- **`systematic-debugging`:** Offers consensus validation for root cause hypotheses
+- **`root-cause-tracing`:** Optional multi-agent validation of root cause findings
+- Helps catch blind spots in debugging by getting diverse AI perspectives
+- Optional integration - can be used when stuck or for complex issues
+
+**Enhanced Code Review**
+
+Upgraded `requesting-code-review` skill with consensus aggregation:
+
+- Parallel reviews from Claude, Gemini, and Codex for maximum coverage
+- Consensus-based issue grouping:
+  - HIGH PRIORITY: All reviewers agree (3/3 or 2/2)
+  - MEDIUM PRIORITY: Majority flagged (2/3)
+  - CONSIDER: Single reviewer (1/3)
+- Configurable similarity threshold via `SIMILARITY_THRESHOLD` env var (default: 60%)
+- Intelligent issue matching with stop word filtering and filename normalization
+- New helper script: `skills/requesting-code-review/multi-review.sh`
+- Complete architecture documentation
+
+### Files Added
+
+**Multi-Agent Consensus:**
+- `skills/multi-agent-consensus/` - Complete skill directory
+  - `SKILL.md` - Skill definition and usage
+  - `README.md` - Architecture and integration guide
+  - `consensus-synthesis.sh` - Two-stage consensus implementation
+  - `test-consensus-synthesis.sh` - Comprehensive test suite (33 tests)
+  - `TIMEOUT-ANALYSIS.md` - Detailed timeout analysis
+  - `TIMEOUT-CHANGES-SUMMARY.md` - Migration guide
+
+**Design Documentation:**
+- `docs/plans/2025-12-13-multi-reviewer-code-review-design.md`
+- `docs/plans/2025-12-13-multi-reviewer-code-review-implementation.md`
+- `docs/plans/2025-12-13-multi-agent-consensus-framework-design.md`
+- `docs/plans/2025-12-13-multi-agent-consensus-framework-implementation.md`
+- `docs/plans/2025-12-14-consensus-synthesis-phase1-design.md`
+- `docs/plans/2025-12-14-consensus-synthesis-phase1-implementation.md`
+- `docs/plans/2025-12-14-consensus-debugging-phase2-design.md`
+
+### Fork-Specific Changes
+
+- Updated author to Gabe Ortiz (gabe@signalnine.com)
+- Updated repository references to signalnine/superpowers
+- Maintained full compatibility with upstream obra/superpowers
+
+---
+
 ## v4.0.3 (2025-12-26)
 
 ### Improvements
