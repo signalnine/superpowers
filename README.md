@@ -2,6 +2,74 @@
 
 Superpowers is a complete software development workflow for your coding agents, built on top of a set of composable "skills" and some initial instructions that make sure your agent uses them.
 
+## This Fork: Multi-Agent Consensus
+
+![The Council](council.png)
+
+**This fork adds automatic multi-agent consensus** - a council of AI reviewers (Claude, Gemini, and Codex) that independently analyze your work, then synthesize their perspectives into prioritized recommendations.
+
+### What's Different From Upstream
+
+| Feature | Upstream | This Fork |
+|---------|----------|-----------|
+| Code review | Single reviewer | 3 agents + consensus synthesis |
+| Design validation | Optional | Automatic after brainstorming |
+| Plan validation | None | Architecture/risk review before execution |
+| Bug analysis | Single perspective | Multi-agent root cause validation |
+| Final verification | Local tests only | Tests + multi-agent review |
+| Brainstorming | Interactive only | **Autopilot mode** - consensus answers questions |
+
+### Automatic Consensus Integration
+
+Consensus review triggers automatically at key workflow points:
+
+```
+Brainstorming → Writing Plans → Execution → Debugging → Verification
+     ↓              ↓              ↓           ↓            ↓
+  Design        Architecture    Per-task    Root cause   Final check
+  validation    validation      review      validation   before done
+```
+
+**7 skills enhanced with consensus:**
+- `brainstorming` - Design validation + autopilot mode
+- `writing-plans` - Architecture/risk/scope validation
+- `subagent-driven-development` - Third review stage after code quality
+- `executing-plans` - Consensus review after each batch
+- `finishing-a-development-branch` - Final review before merge
+- `systematic-debugging` - Root cause hypothesis validation
+- `verification-before-completion` - Multi-agent final check
+
+### Consensus Autopilot (New)
+
+In brainstorming, you can now choose **Consensus Autopilot** mode:
+
+```
+Two modes available:
+1. Interactive - I ask questions, you answer
+2. Consensus Autopilot - Multi-agent consensus answers questions,
+   you watch and can interrupt anytime to override
+```
+
+The council debates each design decision while you watch. Interrupt anytime to override, go back, or take over.
+
+### Using Consensus Directly
+
+```bash
+# Review code changes
+./skills/multi-agent-consensus/auto-review.sh "Added authentication"
+
+# Review with explicit base
+./skills/multi-agent-consensus/auto-review.sh --base=HEAD~5 "Recent fixes"
+
+# General question
+./skills/multi-agent-consensus/consensus-synthesis.sh \
+  --mode=general-prompt \
+  --prompt="What could go wrong with this architecture?" \
+  --context="$(cat design.md)"
+```
+
+---
+
 ## How it works
 
 It starts from the moment you fire up your coding agent. As soon as it sees that you're building something, it *doesn't* just jump into trying to write code. Instead, it steps back and asks you what you're really trying to do. 
