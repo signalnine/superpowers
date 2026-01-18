@@ -1,3 +1,6 @@
 .worktrees/
 .private-journal/
 .claude/
+
+# Brainstorming session checkpoints (temporary)
+docs/plans/.brainstorm-checkpoint-*.json
