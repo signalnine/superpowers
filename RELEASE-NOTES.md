@@ -1,5 +1,50 @@
 # Superpowers Release Notes
 
+## v4.3.0 (2026-01-17) - Automatic Multi-Agent Consensus Integration
+
+### New Features
+
+**Automatic Consensus Code Review**
+
+Multi-agent consensus review is now integrated into key workflow skills, triggering automatically at decision points:
+
+**New Tool:**
+- `skills/multi-agent-consensus/auto-review.sh` - Wrapper that auto-detects git SHAs for easy invocation
+
+**Workflow Integrations (7 skills):**
+
+| Skill | Integration Point |
+|-------|------------------|
+| subagent-driven-development | Third review stage after code quality |
+| executing-plans | Consensus review after each batch |
+| finishing-a-development-branch | Final review before merge options |
+| writing-plans | Architecture/risk validation before execution |
+| brainstorming | Design validation (now recommended, was optional) |
+| systematic-debugging | Root cause validation (enhanced with tool refs) |
+| verification-before-completion | Final multi-agent check for significant work |
+
+**Consensus Flow Across Development Lifecycle:**
+```
+Brainstorming → Writing Plans → Execution → Debugging → Verification
+     ↓              ↓              ↓           ↓            ↓
+  Design        Architecture    Per-task    Root cause   Final check
+  validation    validation      review      validation   before done
+```
+
+**Usage:**
+```bash
+# Auto-detect base from origin/main, review to HEAD
+./skills/multi-agent-consensus/auto-review.sh "Description of changes"
+
+# Explicit base SHA
+./skills/multi-agent-consensus/auto-review.sh --base=HEAD~3 "Recent fixes"
+
+# With plan file for context
+./skills/multi-agent-consensus/auto-review.sh --plan-file=docs/plan.md "Task 1"
+```
+
+---
+
 ## v4.2.2 (2026-01-10) - Restore Configurability with Higher Defaults
 
 ### Bug Fixes
