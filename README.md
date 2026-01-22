@@ -185,6 +185,7 @@ Fetch and follow instructions from https://raw.githubusercontent.com/obra/superp
 - **using-git-worktrees** - Parallel development branches
 - **finishing-a-development-branch** - Merge/PR decision workflow
 - **subagent-driven-development** - Fast iteration with two-stage review (spec compliance, then code quality)
+- **ralph-loop** - Autonomous iteration wrapper - runs tasks until success or iteration cap hit (fresh context per iteration, stuck detection, failure branches)
 
 **Meta**
 - **writing-skills** - Create new skills following best practices (includes testing methodology)
