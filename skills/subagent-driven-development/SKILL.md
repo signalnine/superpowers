@@ -5,9 +5,20 @@ description: Use when executing implementation plans with independent tasks in t
 
 # Subagent-Driven Development
 
-Execute plan by dispatching fresh subagent per task, with three-stage review after each: spec compliance review first, then code quality review, then multi-agent consensus review.
+Execute plan by running each task through **ralph-loop** for autonomous iteration with fresh context, then consensus review.
 
-**Core principle:** Fresh subagent per task + three-stage review (spec, quality, consensus) = high quality, fast iteration
+**Core principle:** Fresh context per iteration (ralph-loop) + consensus review = autonomous, high-quality task completion
+
+## Ralph Loop Integration
+
+Each task runs through `ralph-runner.sh`:
+- **Fresh context:** Each iteration is a clean `claude -p` invocation (no polluted context)
+- **Iteration cap:** Max 5 attempts per task (configurable)
+- **Stuck detection:** Same error 3x = try different approach or abort
+- **Failure branches:** If cap hit, branch failed work and continue to next task
+- **Gates:** Tests → Spec compliance → Code quality (all automated)
+
+After ralph-loop succeeds, consensus review validates the work.
 
 ## When to Use
 
@@ -15,25 +26,24 @@ Execute plan by dispatching fresh subagent per task, with three-stage review aft
 digraph when_to_use {
     "Have implementation plan?" [shape=diamond];
     "Tasks mostly independent?" [shape=diamond];
-    "Stay in this session?" [shape=diamond];
+    "Want autonomous execution?" [shape=diamond];
     "subagent-driven-development" [shape=box];
     "executing-plans" [shape=box];
-    "Manual execution or brainstorm first" [shape=box];
+    "Manual execution" [shape=box];
 
     "Have implementation plan?" -> "Tasks mostly independent?" [label="yes"];
-    "Have implementation plan?" -> "Manual execution or brainstorm first" [label="no"];
-    "Tasks mostly independent?" -> "Stay in this session?" [label="yes"];
-    "Tasks mostly independent?" -> "Manual execution or brainstorm first" [label="no - tightly coupled"];
-    "Stay in this session?" -> "subagent-driven-development" [label="yes"];
-    "Stay in this session?" -> "executing-plans" [label="no - parallel session"];
+    "Have implementation plan?" -> "Manual execution" [label="no"];
+    "Tasks mostly independent?" -> "Want autonomous execution?" [label="yes"];
+    "Tasks mostly independent?" -> "Manual execution" [label="no - tightly coupled"];
+    "Want autonomous execution?" -> "subagent-driven-development" [label="yes"];
+    "Want autonomous execution?" -> "executing-plans" [label="no - want checkpoints"];
 }
 ```
 
-**vs. Executing Plans (parallel session):**
-- Same session (no context switch)
-- Fresh subagent per task (no context pollution)
-- Three-stage review after each task: spec compliance, code quality, then multi-agent consensus
-- Faster iteration (no human-in-loop between tasks)
+**Key difference from executing-plans:**
+- Fully autonomous (ralph-loop handles retries)
+- Fresh context per iteration (no conversation pollution)
+- Failed tasks get branched and skipped (plan continues)
 
 ## The Process
 
@@ -42,224 +52,287 @@ digraph process {
     rankdir=TB;
 
     subgraph cluster_per_task {
-        label="Per Task";
-        "Dispatch implementer subagent (./implementer-prompt.md)" [shape=box];
-        "Implementer subagent asks questions?" [shape=diamond];
-        "Answer questions, provide context" [shape=box];
-        "Implementer subagent implements, tests, commits, self-reviews" [shape=box];
-        "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" [shape=box];
-        "Spec reviewer subagent confirms code matches spec?" [shape=diamond];
-        "Implementer subagent fixes spec gaps" [shape=box];
-        "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [shape=box];
-        "Code quality reviewer subagent approves?" [shape=diamond];
-        "Implementer subagent fixes quality issues" [shape=box];
-        "Run consensus review (../multi-agent-consensus/auto-review.sh)" [shape=box];
+        label="Per Task (via ralph-loop)";
+        "Write task spec to temp file" [shape=box];
+        "Run ralph-runner.sh" [shape=box style=filled fillcolor=lightyellow];
+        "Ralph-loop: implement → test → spec → quality" [shape=box];
+        "Ralph-loop succeeded?" [shape=diamond];
+        "Run consensus review" [shape=box];
         "Consensus High Priority issues?" [shape=diamond];
-        "Implementer fixes High Priority issues" [shape=box];
-        "Mark task complete in TodoWrite" [shape=box];
+        "Mark task COMPLETE" [shape=box style=filled fillcolor=lightgreen];
+        "Mark task FAILED (branch created)" [shape=box style=filled fillcolor=lightcoral];
     }
 
-    "Read plan, extract all tasks with full text, note context, create TodoWrite" [shape=box];
+    "Read plan, extract all tasks, create TodoWrite" [shape=box];
     "More tasks remain?" [shape=diamond];
-    "Dispatch final code reviewer subagent for entire implementation" [shape=box];
+    "Run final consensus review on all changes" [shape=box];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
-    "Read plan, extract all tasks with full text, note context, create TodoWrite" -> "Dispatch implementer subagent (./implementer-prompt.md)";
-    "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer subagent asks questions?";
-    "Implementer subagent asks questions?" -> "Answer questions, provide context" [label="yes"];
-    "Answer questions, provide context" -> "Dispatch implementer subagent (./implementer-prompt.md)";
-    "Implementer subagent asks questions?" -> "Implementer subagent implements, tests, commits, self-reviews" [label="no"];
-    "Implementer subagent implements, tests, commits, self-reviews" -> "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)";
-    "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" -> "Spec reviewer subagent confirms code matches spec?";
-    "Spec reviewer subagent confirms code matches spec?" -> "Implementer subagent fixes spec gaps" [label="no"];
-    "Implementer subagent fixes spec gaps" -> "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" [label="re-review"];
-    "Spec reviewer subagent confirms code matches spec?" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="yes"];
-    "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" -> "Code quality reviewer subagent approves?";
-    "Code quality reviewer subagent approves?" -> "Implementer subagent fixes quality issues" [label="no"];
-    "Implementer subagent fixes quality issues" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="re-review"];
-    "Code quality reviewer subagent approves?" -> "Run consensus review (../multi-agent-consensus/auto-review.sh)" [label="yes"];
-    "Run consensus review (../multi-agent-consensus/auto-review.sh)" -> "Consensus High Priority issues?";
-    "Consensus High Priority issues?" -> "Implementer fixes High Priority issues" [label="yes"];
-    "Implementer fixes High Priority issues" -> "Run consensus review (../multi-agent-consensus/auto-review.sh)" [label="re-review"];
-    "Consensus High Priority issues?" -> "Mark task complete in TodoWrite" [label="no"];
-    "Mark task complete in TodoWrite" -> "More tasks remain?";
-    "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
-    "More tasks remain?" -> "Dispatch final code reviewer subagent for entire implementation" [label="no"];
-    "Dispatch final code reviewer subagent for entire implementation" -> "Use superpowers:finishing-a-development-branch";
+    "Read plan, extract all tasks, create TodoWrite" -> "Write task spec to temp file";
+    "Write task spec to temp file" -> "Run ralph-runner.sh";
+    "Run ralph-runner.sh" -> "Ralph-loop: implement → test → spec → quality";
+    "Ralph-loop: implement → test → spec → quality" -> "Ralph-loop succeeded?";
+    "Ralph-loop succeeded?" -> "Run consensus review" [label="yes (exit 0)"];
+    "Ralph-loop succeeded?" -> "Mark task FAILED (branch created)" [label="no (exit 1)"];
+    "Run consensus review" -> "Consensus High Priority issues?";
+    "Consensus High Priority issues?" -> "Mark task FAILED (branch created)" [label="yes - needs rework"];
+    "Consensus High Priority issues?" -> "Mark task COMPLETE" [label="no"];
+    "Mark task COMPLETE" -> "More tasks remain?";
+    "Mark task FAILED (branch created)" -> "More tasks remain?";
+    "More tasks remain?" -> "Write task spec to temp file" [label="yes"];
+    "More tasks remain?" -> "Run final consensus review on all changes" [label="no"];
+    "Run final consensus review on all changes" -> "Use superpowers:finishing-a-development-branch";
 }
 ```
 
-## Prompt Templates
+## Task Execution
 
-- `./implementer-prompt.md` - Dispatch implementer subagent
-- `./spec-reviewer-prompt.md` - Dispatch spec compliance reviewer subagent
-- `./code-quality-reviewer-prompt.md` - Dispatch code quality reviewer subagent
+For each task in the plan:
+
+### Step 1: Write Task Spec
+
+```bash
+# Create temp file with task spec
+TASK_SPEC=$(mktemp --suffix=.md)
+cat > "$TASK_SPEC" << 'EOF'
+# Task: [task name]
+
+## Context
+[Scene-setting: what this task is part of, what exists already]
+
+## Requirements
+[Full task requirements from plan]
+
+## Success Criteria
+- [ ] [criterion 1]
+- [ ] [criterion 2]
+- [ ] All tests pass
+- [ ] Code committed
+
+## Files
+- Create/Modify: [file paths from plan]
+- Test: [test file paths]
+EOF
+```
+
+### Step 2: Run Ralph Loop
+
+```bash
+# Run task through ralph-loop (autonomous iteration)
+./skills/ralph-loop/ralph-runner.sh \
+    "task-name" \
+    "$TASK_SPEC" \
+    --non-interactive \
+    -d "$(pwd)"
+
+RALPH_EXIT=$?
+```
+
+Ralph-loop handles internally:
+1. **Implement:** Fresh `claude -p` with task spec + previous failure context
+2. **Test gate:** Auto-detect and run tests (npm/cargo/pytest/go)
+3. **Spec gate:** Fresh `claude -p` to verify spec compliance
+4. **Quality gate:** Run linters (soft - warnings only)
+5. **Retry:** If any hard gate fails, iterate with fresh context
+6. **Stuck detection:** Same error 3x triggers strategy shift directive
+7. **Failure branch:** If cap hit, create `wip/ralph-fail-{task}-{timestamp}` branch
+
+### Step 3: Consensus Review (if ralph-loop succeeded)
+
+```bash
+if [ $RALPH_EXIT -eq 0 ]; then
+    # Ralph-loop succeeded, run consensus review
+    ./skills/multi-agent-consensus/auto-review.sh "Completed task: [task name]"
+
+    # Check for High Priority issues
+    # If High Priority: mark task failed, continue
+    # If no High Priority: mark task complete
+fi
+```
+
+### Step 4: Update TodoWrite
+
+```bash
+if [ $RALPH_EXIT -eq 0 ] && [ no_high_priority_issues ]; then
+    # Mark task COMPLETE in TodoWrite
+else
+    # Mark task FAILED in TodoWrite
+    # Failure branch already created by ralph-loop
+fi
+```
 
 ## Example Workflow
 
 ```
 You: I'm using Subagent-Driven Development to execute this plan.
 
-[Read plan file once: docs/plans/feature-plan.md]
-[Extract all 5 tasks with full text and context]
+[Read plan file: docs/plans/feature-plan.md]
+[Extract all 5 tasks]
 [Create TodoWrite with all tasks]
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Task 1: Hook installation script
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[Get Task 1 text and context (already extracted)]
-[Dispatch implementation subagent with full task text + context]
+[Write task spec to /tmp/task-1-spec.md]
+[Run: ./skills/ralph-loop/ralph-runner.sh "hook-install" "/tmp/task-1-spec.md" --non-interactive]
 
-Implementer: "Before I begin - should the hook be installed at user or system level?"
+Ralph Loop: hook-install
+Max iterations: 5
+========== Iteration 1/5 ==========
+[1/3] Implementation... (fresh claude -p)
+[2/3] Running tests... PASS
+[3/3] Spec compliance review... PASS
+[soft] Code quality check... 0 warnings
+========================================
+SUCCESS: hook-install completed in 1 iteration
+========================================
 
-You: "User level (~/.config/superpowers/hooks/)"
+[Run consensus review]
+Consensus: High Priority: None. Approved.
 
-Implementer: "Got it. Implementing now..."
-[Later] Implementer:
-  - Implemented install-hook command
-  - Added tests, 5/5 passing
-  - Self-review: Found I missed --force flag, added it
-  - Committed
+[Mark Task 1 COMPLETE ✓]
 
-[Dispatch spec compliance reviewer]
-Spec reviewer: ✅ Spec compliant - all requirements met, nothing extra
-
-[Get git SHAs, dispatch code quality reviewer]
-Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
-
-[Run consensus review: ../multi-agent-consensus/auto-review.sh "Completed task: Hook installation script"]
-Consensus: High Priority: None. Medium Priority: None. Consider: 1 suggestion. Approved.
-
-[Mark Task 1 complete]
-
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Task 2: Recovery modes
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[Get Task 2 text and context (already extracted)]
-[Dispatch implementation subagent with full task text + context]
+[Write task spec to /tmp/task-2-spec.md]
+[Run: ./skills/ralph-loop/ralph-runner.sh "recovery-modes" "/tmp/task-2-spec.md" --non-interactive]
 
-Implementer: [No questions, proceeds]
-Implementer:
-  - Added verify/repair modes
-  - 8/8 tests passing
-  - Self-review: All good
-  - Committed
+Ralph Loop: recovery-modes
+========== Iteration 1/5 ==========
+[1/3] Implementation...
+[2/3] Running tests... FAIL
+FAIL: update_state "tests" 1 "expected 'fixed' got 'broken'"
+========== Iteration 2/5 ==========
+[1/3] Implementation... (fresh context + previous error)
+[2/3] Running tests... PASS
+[3/3] Spec compliance... FAIL (missing progress reporting)
+========== Iteration 3/5 ==========
+[1/3] Implementation... (fresh context + spec feedback)
+[2/3] Running tests... PASS
+[3/3] Spec compliance... PASS
+[soft] Code quality... 1 warning (magic number)
+========================================
+SUCCESS: recovery-modes completed in 3 iterations
+========================================
 
-[Dispatch spec compliance reviewer]
-Spec reviewer: ❌ Issues:
-  - Missing: Progress reporting (spec says "report every 100 items")
-  - Extra: Added --json flag (not requested)
+[Run consensus review]
+Consensus: High Priority: None. Medium: Extract constant. Approved.
 
-[Implementer fixes issues]
-Implementer: Removed --json flag, added progress reporting
+[Mark Task 2 COMPLETE ✓]
 
-[Spec reviewer reviews again]
-Spec reviewer: ✅ Spec compliant now
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Task 3: Rate limiting (fails)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[Dispatch code quality reviewer]
-Code reviewer: Strengths: Solid. Issues (Important): Magic number (100)
+[Write task spec to /tmp/task-3-spec.md]
+[Run ralph-loop...]
 
-[Implementer fixes]
-Implementer: Extracted PROGRESS_INTERVAL constant
+Ralph Loop: rate-limiting
+========== Iteration 1/5 ==========
+[2/3] Running tests... FAIL (race condition)
+========== Iteration 2/5 ==========
+[2/3] Running tests... FAIL (race condition)
+========== Iteration 3/5 ==========
+STUCK: Same error 3 times
+[2/3] Running tests... FAIL (race condition)
+========== Iteration 4/5 ==========
+[2/3] Running tests... FAIL (different approach, still fails)
+========== Iteration 5/5 ==========
+[2/3] Running tests... FAIL
+========================================
+CAP HIT: rate-limiting failed after 5 iterations
+========================================
+Creating failure branch: wip/ralph-fail-rate-limiting-20260121-123456
+Failed work preserved in branch: wip/ralph-fail-rate-limiting-20260121-123456
 
-[Code reviewer reviews again]
-Code reviewer: ✅ Approved
+[Mark Task 3 FAILED ✗ - branch: wip/ralph-fail-rate-limiting-20260121-123456]
+[Continue to Task 4...]
 
-[Run consensus review: ../multi-agent-consensus/auto-review.sh "Completed task: Recovery modes"]
-Consensus: High Priority: None. All reviewers approve.
-
-[Mark Task 2 complete]
-
-...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+... Tasks 4-5 ...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [After all tasks]
-[Dispatch final code-reviewer]
-Final reviewer: All requirements met, ready to merge
+[Run final consensus review on all completed work]
+[Use superpowers:finishing-a-development-branch]
 
-Done!
+Summary:
+- Completed: 4/5 tasks
+- Failed: 1 task (rate-limiting)
+  - Branch: wip/ralph-fail-rate-limiting-20260121-123456
+  - Error: Race condition in token bucket
+  - Iterations: 5/5, stuck on same error
 ```
 
 ## Advantages
 
-**vs. Manual execution:**
-- Subagents follow TDD naturally
-- Fresh context per task (no confusion)
-- Parallel-safe (subagents don't interfere)
-- Subagent can ask questions (before AND during work)
+**Fresh context per iteration:**
+- No polluted context from failed attempts
+- Each retry starts clean
+- Can break out of stuck patterns
 
-**vs. Executing Plans:**
-- Same session (no handoff)
-- Continuous progress (no waiting)
-- Review checkpoints automatic
+**Autonomous execution:**
+- No human-in-loop during task execution
+- Ralph-loop handles all retries
+- Failed tasks get branched and skipped
 
-**Efficiency gains:**
-- No file reading overhead (controller provides full text)
-- Controller curates exactly what context is needed
-- Subagent gets complete information upfront
-- Questions surfaced before work begins (not after)
+**Forward progress guaranteed:**
+- Iteration cap prevents infinite loops
+- Failed tasks don't block plan
+- Failure branches preserve work for later
 
 **Quality gates:**
-- Self-review catches issues before handoff
-- Three-stage review: spec compliance, code quality, then multi-agent consensus
-- Review loops ensure fixes actually work
-- Spec compliance prevents over/under-building
-- Code quality ensures implementation is well-built
-- Consensus review catches issues via multiple AI perspectives (Claude, Gemini, Codex)
+- Tests must pass (hard gate)
+- Spec compliance verified (hard gate)
+- Code quality checked (soft gate)
+- Consensus review after success
 
-**Cost:**
-- More invocations (implementer + 2 reviewers + consensus per task)
-- Controller does more prep work (extracting all tasks upfront)
-- Review loops add iterations
-- Multi-agent consensus uses 3 external APIs (Claude, Gemini, Codex)
-- But catches issues early (cheaper than debugging later)
+## Configuration
+
+Environment variables (passed to ralph-loop):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RALPH_TIMEOUT_IMPLEMENT` | 1200s | Implementation timeout |
+| `RALPH_TIMEOUT_TEST` | 600s | Test timeout |
+| `RALPH_TIMEOUT_GLOBAL` | 3600s | Overall loop timeout |
+| `RALPH_STUCK_THRESHOLD` | 3 | Same error count before stuck |
 
 ## Red Flags
 
 **Never:**
-- Skip reviews (spec compliance OR code quality OR consensus)
-- Proceed with unfixed High Priority consensus issues
-- Dispatch multiple implementation subagents in parallel (conflicts)
-- Make subagent read plan file (provide full text instead)
-- Skip scene-setting context (subagent needs to understand where task fits)
-- Ignore subagent questions (answer before letting them proceed)
-- Accept "close enough" on spec compliance (spec reviewer found issues = not done)
-- Skip review loops (reviewer found issues = implementer fixes = review again)
-- Let implementer self-review replace actual review (both are needed)
-- **Start code quality review before spec compliance is ✅** (wrong order)
-- **Start consensus review before code quality is ✅** (wrong order)
-- Move to next task while any review has open High Priority issues
+- Skip consensus review after ralph-loop succeeds
+- Proceed with High Priority consensus issues
+- Run multiple ralph-loops in parallel (git conflicts)
+- Manually intervene during ralph-loop execution
+- Skip failed tasks without creating failure branch
 
-**If subagent asks questions:**
-- Answer clearly and completely
-- Provide additional context if needed
-- Don't rush them into implementation
+**If ralph-loop fails:**
+- Failure branch already created
+- Mark task FAILED in TodoWrite
+- Continue to next task
+- Don't try to fix manually
 
-**If reviewer finds issues:**
-- Implementer (same subagent) fixes them
-- Reviewer reviews again
-- Repeat until approved
-- Don't skip the re-review
-
-**If consensus review finds issues:**
-- High Priority: Must fix before proceeding (implementer fixes, re-run consensus)
-- Medium Priority: Consider fixing (use judgment based on context)
-- Consider/Suggestions: Optional improvements (can proceed without fixing)
-
-**If subagent fails task:**
-- Dispatch fix subagent with specific instructions
-- Don't try to fix manually (context pollution)
+**If consensus finds High Priority issues:**
+- Mark task as needing rework
+- Could re-run ralph-loop with additional context
+- Or mark FAILED and continue
 
 ## Integration
 
-**Required workflow skills:**
+**Required:**
+- **superpowers:ralph-loop** - Autonomous iteration engine
+- **superpowers:multi-agent-consensus** - Consensus review
+- **superpowers:finishing-a-development-branch** - Complete development
+
+**Plan source:**
 - **superpowers:writing-plans** - Creates the plan this skill executes
-- **superpowers:requesting-code-review** - Code review template for reviewer subagents
-- **superpowers:finishing-a-development-branch** - Complete development after all tasks
 
-**Consensus review uses:**
-- **../multi-agent-consensus/auto-review.sh** - Wrapper for multi-agent consensus
-- **../multi-agent-consensus/consensus-synthesis.sh** - Core multi-agent review engine
+## Files
 
-**Subagents should use:**
-- **superpowers:test-driven-development** - Subagents follow TDD for each task
-
-**Alternative workflow:**
-- **superpowers:executing-plans** - Use for parallel session instead of same-session execution
+- `./implementer-prompt.md` - Reference for task spec format (used by ralph-loop internally)
+- `./spec-reviewer-prompt.md` - Reference for spec review (used by ralph-loop internally)
+- `./code-quality-reviewer-prompt.md` - Reference for quality review
