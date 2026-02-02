@@ -304,6 +304,7 @@ Environment variables (passed to ralph-loop):
 ## Red Flags
 
 **Never:**
+- Start implementation on main/master branch without explicit user consent
 - Skip consensus review after ralph-loop succeeds
 - Proceed with High Priority consensus issues
 - Run multiple ralph-loops in parallel (git conflicts)
@@ -324,6 +325,7 @@ Environment variables (passed to ralph-loop):
 ## Integration
 
 **Required:**
+- **superpowers:using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
 - **superpowers:ralph-loop** - Autonomous iteration engine
 - **superpowers:multi-agent-consensus** - Consensus review
 - **superpowers:finishing-a-development-branch** - Complete development
