@@ -1,31 +1,26 @@
-# Superpowers
+# Conclave
 
-Superpowers is a complete software development workflow for your coding agents, built on top of a set of composable "skills" and some initial instructions that make sure your agent uses them.
+Conclave is a multi-agent consensus development system for coding agents. It orchestrates a council of AI reviewers (Claude, Gemini, and Codex) that independently analyze your work, synthesize their perspectives, and produce prioritized recommendations - all built on top of composable "skills" that activate automatically at the right moments.
 
-## This Fork: Multi-Agent Consensus
+> Forked from [obra/superpowers](https://github.com/obra/superpowers) under MIT license
 
 ![The Council](council.png)
 
-**This fork adds automatic multi-agent consensus** - a council of AI reviewers (Claude, Gemini, and Codex) that independently analyze your work, then synthesize their perspectives into prioritized recommendations.
+## How It Works
 
-### What's Different From Upstream
+It starts from the moment you fire up your coding agent. Before any code gets written, the system activates a brainstorming skill that teases out what you're actually trying to build through structured questions. You can answer interactively, or switch to **Consensus Autopilot** mode where the council of AI agents debates each design decision while you watch and intervene only when needed.
 
-| Feature | Upstream | This Fork |
-|---------|----------|-----------|
-| Code review | Single reviewer | 3 agents + consensus synthesis |
-| Design validation | Optional | Automatic after brainstorming |
-| Plan validation | None | Architecture/risk review before execution |
-| Bug analysis | Single perspective | Multi-agent root cause validation |
-| Final verification | Local tests only | Tests + multi-agent review |
-| Brainstorming | Interactive only | **Autopilot mode** - consensus answers questions |
+Once the design is validated (by multi-agent consensus), the system generates an implementation plan broken into bite-sized tasks. Each task gets dispatched to a fresh subagent with two-stage review: spec compliance first, then code quality. At every checkpoint, the council weighs in - architecture validation on plans, per-task review during execution, root cause validation during debugging, and a final multi-agent check before you merge.
 
-### Automatic Consensus Integration
+The result: your coding agent works autonomously for hours at a time, with multiple AI perspectives catching issues that any single reviewer would miss. And because the skills trigger automatically, you don't need to do anything special.
+
+## Multi-Agent Consensus
 
 Consensus review triggers automatically at key workflow points:
 
 ```
-Brainstorming → Writing Plans → Execution → Debugging → Verification
-     ↓              ↓              ↓           ↓            ↓
+Brainstorming -> Writing Plans -> Execution -> Debugging -> Verification
+     |              |              |           |            |
   Design        Architecture    Per-task    Root cause   Final check
   validation    validation      review      validation   before done
 ```
@@ -39,9 +34,9 @@ Brainstorming → Writing Plans → Execution → Debugging → Verification
 - `systematic-debugging` - Root cause hypothesis validation
 - `verification-before-completion` - Multi-agent final check
 
-### Consensus Autopilot (New)
+### Consensus Autopilot
 
-In brainstorming, you can now choose **Consensus Autopilot** mode:
+In brainstorming, you can choose **Consensus Autopilot** mode:
 
 ```
 Two modes available:
@@ -70,28 +65,6 @@ The council debates each design decision while you watch. Interrupt anytime to o
 
 ---
 
-## How it works
-
-It starts from the moment you fire up your coding agent. As soon as it sees that you're building something, it *doesn't* just jump into trying to write code. Instead, it steps back and asks you what you're really trying to do. 
-
-Once it's teased a spec out of the conversation, it shows it to you in chunks short enough to actually read and digest. 
-
-After you've signed off on the design, your agent puts together an implementation plan that's clear enough for an enthusiastic junior engineer with poor taste, no judgement, no project context, and an aversion to testing to follow. It emphasizes true red/green TDD, YAGNI (You Aren't Gonna Need It), and DRY. 
-
-Next up, once you say "go", it launches a *subagent-driven-development* process, having agents work through each engineering task, inspecting and reviewing their work, and continuing forward. It's not uncommon for Claude to be able to work autonomously for a couple hours at a time without deviating from the plan you put together.
-
-There's a bunch more to it, but that's the core of the system. And because the skills trigger automatically, you don't need to do anything special. Your coding agent just has Superpowers.
-
-
-## Sponsorship
-
-If Superpowers has helped you do stuff that makes money and you are so inclined, I'd greatly appreciate it if you'd consider [sponsoring my opensource work](https://github.com/sponsors/obra).
-
-Thanks! 
-
-- Jesse
-
-
 ## Installation
 
 **Note:** Installation differs by platform. Claude Code has a built-in plugin system. Codex and OpenCode require manual setup.
@@ -107,10 +80,8 @@ In Claude Code, register the marketplace first:
 Then install the plugin from this marketplace:
 
 ```bash
-/plugin install superpowers@honest-gabes-marketplace
+/plugin install conclave@honest-gabes-marketplace
 ```
-
-> **Note:** This fork is available from [Honest Gabe's Marketplace](https://github.com/signalnine/honest-gabes-marketplace). For the upstream version without multi-agent consensus, use `obra/superpowers-marketplace` instead.
 
 ### Verify Installation
 
@@ -122,9 +93,9 @@ Check that commands appear:
 
 ```
 # Should see:
-# /superpowers:brainstorm - Interactive design refinement
-# /superpowers:write-plan - Create implementation plan
-# /superpowers:execute-plan - Execute plan in batches
+# /conclave:brainstorm - Interactive design refinement
+# /conclave:write-plan - Create implementation plan
+# /conclave:execute-plan - Execute plan in batches
 ```
 
 ### Codex
@@ -132,7 +103,7 @@ Check that commands appear:
 Tell Codex:
 
 ```
-Fetch and follow instructions from https://raw.githubusercontent.com/obra/superpowers/refs/heads/main/.codex/INSTALL.md
+Fetch and follow instructions from https://raw.githubusercontent.com/signalnine/conclave/refs/heads/main/.codex/INSTALL.md
 ```
 
 **Detailed docs:** [docs/README.codex.md](docs/README.codex.md)
@@ -142,7 +113,7 @@ Fetch and follow instructions from https://raw.githubusercontent.com/obra/superp
 Tell OpenCode:
 
 ```
-Fetch and follow instructions from https://raw.githubusercontent.com/obra/superpowers/refs/heads/main/.opencode/INSTALL.md
+Fetch and follow instructions from https://raw.githubusercontent.com/signalnine/conclave/refs/heads/main/.opencode/INSTALL.md
 ```
 
 **Detailed docs:** [docs/README.opencode.md](docs/README.opencode.md)
@@ -159,7 +130,7 @@ Fetch and follow instructions from https://raw.githubusercontent.com/obra/superp
 
 5. **test-driven-development** - Activates during implementation. Enforces RED-GREEN-REFACTOR: write failing test, watch it fail, write minimal code, watch it pass, commit. Deletes code written before tests.
 
-6. **requesting-code-review** - Activates between tasks. Multi-reviewer consensus from Claude, Gemini, and Codex. Groups issues by agreement level (all agree → high priority, majority → medium, single → consider). Critical issues block progress.
+6. **requesting-code-review** - Activates between tasks. Multi-reviewer consensus from Claude, Gemini, and Codex. Groups issues by agreement level (all agree -> high priority, majority -> medium, single -> consider). Critical issues block progress.
 
 7. **finishing-a-development-branch** - Activates when tasks complete. Verifies tests, presents options (merge/PR/keep/discard), cleans up worktree.
 
@@ -191,7 +162,7 @@ Fetch and follow instructions from https://raw.githubusercontent.com/obra/superp
 
 **Meta**
 - **writing-skills** - Create new skills following best practices (includes testing methodology)
-- **using-superpowers** - Introduction to the skills system
+- **using-conclave** - Introduction to the skills system
 
 ## Philosophy
 
@@ -199,8 +170,6 @@ Fetch and follow instructions from https://raw.githubusercontent.com/obra/superp
 - **Systematic over ad-hoc** - Process over guessing
 - **Complexity reduction** - Simplicity as primary goal
 - **Evidence over claims** - Verify before declaring success
-
-Read more: [Superpowers for Claude Code](https://blog.fsck.com/2025/10/09/superpowers/)
 
 ## Contributing
 
@@ -218,7 +187,7 @@ See `skills/writing-skills/SKILL.md` for the complete guide.
 Skills update automatically when you update the plugin:
 
 ```bash
-/plugin update superpowers
+/plugin update conclave
 ```
 
 ## License
@@ -227,5 +196,4 @@ MIT License - see LICENSE file for details
 
 ## Support
 
-- **Issues**: https://github.com/obra/superpowers/issues
-- **Marketplace**: https://github.com/obra/superpowers-marketplace
+- **Issues**: https://github.com/signalnine/conclave/issues

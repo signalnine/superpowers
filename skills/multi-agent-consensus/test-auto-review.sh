@@ -251,7 +251,7 @@ echo "Testing integration with consensus-synthesis.sh..."
 # Test 13: Actually calls consensus-synthesis.sh (needs real repo context)
 echo -n "Test 13: Integration with consensus-synthesis.sh... "
 
-# Run from the actual superpowers repo
+# Run from the actual conclave repo
 cd "$SCRIPT_DIR/../.."
 
 # Use a small range to minimize API calls

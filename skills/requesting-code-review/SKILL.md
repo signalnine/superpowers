@@ -64,7 +64,7 @@ The framework uses a two-stage process:
 
 If you need a quick review, use Claude-only mode:
 
-Dispatch `superpowers:code-reviewer` subagent directly with Task tool.
+Dispatch `conclave:code-reviewer` subagent directly with Task tool.
 
 This skips Gemini/Codex and gives you just Claude's review.
 

@@ -66,7 +66,7 @@ digraph process {
     "More waves?" [shape=diamond];
     "Run final consensus review" [shape=box];
     "Cleanup worktrees, print summary" [shape=box];
-    "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
+    "Use conclave:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
     "Parse plan, build dependency DAG" -> "Compute waves from dependencies";
     "Compute waves from dependencies" -> "Create worktree per task";
@@ -78,7 +78,7 @@ digraph process {
     "More waves?" -> "Create worktree per task" [label="yes (next wave branches from merged state)"];
     "More waves?" -> "Run final consensus review" [label="no"];
     "Run final consensus review" -> "Cleanup worktrees, print summary";
-    "Cleanup worktrees, print summary" -> "Use superpowers:finishing-a-development-branch";
+    "Cleanup worktrees, print summary" -> "Use conclave:finishing-a-development-branch";
 }
 ```
 
@@ -260,13 +260,13 @@ Environment variables for ralph-loop (per-task):
 ## Integration
 
 **Required:**
-- **superpowers:using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
-- **superpowers:ralph-loop** - Autonomous iteration engine
-- **superpowers:multi-agent-consensus** - Consensus review
-- **superpowers:finishing-a-development-branch** - Complete development
+- **conclave:using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
+- **conclave:ralph-loop** - Autonomous iteration engine
+- **conclave:multi-agent-consensus** - Consensus review
+- **conclave:finishing-a-development-branch** - Complete development
 
 **Plan source:**
-- **superpowers:writing-plans** - Creates the plan this skill executes
+- **conclave:writing-plans** - Creates the plan this skill executes
 
 ## Files
 

@@ -7,23 +7,23 @@ const skillsCore = require('../lib/skills-core');
 
 // Paths
 const homeDir = os.homedir();
-const superpowersSkillsDir = path.join(homeDir, '.codex', 'superpowers', 'skills');
+const conclaveSkillsDir = path.join(homeDir, '.codex', 'conclave', 'skills');
 const personalSkillsDir = path.join(homeDir, '.codex', 'skills');
-const bootstrapFile = path.join(homeDir, '.codex', 'superpowers', '.codex', 'superpowers-bootstrap.md');
-const superpowersRepoDir = path.join(homeDir, '.codex', 'superpowers');
+const bootstrapFile = path.join(homeDir, '.codex', 'conclave', '.codex', 'conclave-bootstrap.md');
+const conclaveRepoDir = path.join(homeDir, '.codex', 'conclave');
 
 // Utility functions
 function printSkill(skillPath, sourceType) {
     const skillFile = path.join(skillPath, 'SKILL.md');
     const relPath = sourceType === 'personal'
         ? path.relative(personalSkillsDir, skillPath)
-        : path.relative(superpowersSkillsDir, skillPath);
+        : path.relative(conclaveSkillsDir, skillPath);
 
     // Print skill name with namespace
     if (sourceType === 'personal') {
         console.log(relPath.replace(/\\/g, '/')); // Personal skills are not namespaced
     } else {
-        console.log(`superpowers:${relPath.replace(/\\/g, '/')}`); // Superpowers skills get superpowers namespace
+        console.log(`conclave:${relPath.replace(/\\/g, '/')}`); // Conclave skills get conclave namespace
     }
 
     // Extract and print metadata
@@ -49,37 +49,37 @@ function runFindSkills() {
         printSkill(skill.path, 'personal');
     }
 
-    // Find superpowers skills (only if not already found in personal)
-    const superpowersSkills = skillsCore.findSkillsInDir(superpowersSkillsDir, 'superpowers', 1);
-    for (const skill of superpowersSkills) {
-        const relPath = path.relative(superpowersSkillsDir, skill.path);
+    // Find conclave skills (only if not already found in personal)
+    const conclaveSkills = skillsCore.findSkillsInDir(conclaveSkillsDir, 'conclave', 1);
+    for (const skill of conclaveSkills) {
+        const relPath = path.relative(conclaveSkillsDir, skill.path);
         if (!foundSkills.has(relPath)) {
-            printSkill(skill.path, 'superpowers');
+            printSkill(skill.path, 'conclave');
         }
     }
 
     console.log('Usage:');
-    console.log('  superpowers-codex use-skill <skill-name>   # Load a specific skill');
+    console.log('  conclave-codex use-skill <skill-name>   # Load a specific skill');
     console.log('');
     console.log('Skill naming:');
-    console.log('  Superpowers skills: superpowers:skill-name (from ~/.codex/superpowers/skills/)');
+    console.log('  Conclave skills: conclave:skill-name (from ~/.codex/conclave/skills/)');
     console.log('  Personal skills: skill-name (from ~/.codex/skills/)');
-    console.log('  Personal skills override superpowers skills when names match.');
+    console.log('  Personal skills override conclave skills when names match.');
     console.log('');
     console.log('Note: All skills are disclosed at session start via bootstrap.');
 }
 
 function runBootstrap() {
-    console.log('# Superpowers Bootstrap for Codex');
+    console.log('# Conclave Bootstrap for Codex');
     console.log('# ================================');
     console.log('');
 
     // Check for updates (with timeout protection)
-    if (skillsCore.checkForUpdates(superpowersRepoDir)) {
+    if (skillsCore.checkForUpdates(conclaveRepoDir)) {
         console.log('## Update Available');
         console.log('');
-        console.log('⚠️  Your superpowers installation is behind the latest version.');
-        console.log('To update, run: `cd ~/.codex/superpowers && git pull`');
+        console.log('Your conclave installation is behind the latest version.');
+        console.log('To update, run: `cd ~/.codex/conclave && git pull`');
         console.log('');
         console.log('---');
         console.log('');
@@ -109,38 +109,38 @@ function runBootstrap() {
     console.log('---');
     console.log('');
 
-    // Load the using-superpowers skill automatically
-    console.log('## Auto-loading superpowers:using-superpowers skill:');
+    // Load the using-conclave skill automatically
+    console.log('## Auto-loading conclave:using-conclave skill:');
     console.log('');
-    runUseSkill('superpowers:using-superpowers');
+    runUseSkill('conclave:using-conclave');
 
     console.log('');
     console.log('---');
     console.log('');
     console.log('# Bootstrap Complete!');
-    console.log('# You now have access to all superpowers skills.');
-    console.log('# Use "superpowers-codex use-skill <skill>" to load and apply skills.');
+    console.log('# You now have access to all conclave skills.');
+    console.log('# Use "conclave-codex use-skill <skill>" to load and apply skills.');
     console.log('# Remember: If a skill applies to your task, you MUST use it!');
 }
 
 function runUseSkill(skillName) {
     if (!skillName) {
-        console.log('Usage: superpowers-codex use-skill <skill-name>');
+        console.log('Usage: conclave-codex use-skill <skill-name>');
         console.log('Examples:');
-        console.log('  superpowers-codex use-skill superpowers:brainstorming  # Load superpowers skill');
-        console.log('  superpowers-codex use-skill brainstorming              # Load personal skill (or superpowers if not found)');
-        console.log('  superpowers-codex use-skill my-custom-skill            # Load personal skill');
+        console.log('  conclave-codex use-skill conclave:brainstorming  # Load conclave skill');
+        console.log('  conclave-codex use-skill brainstorming              # Load personal skill (or conclave if not found)');
+        console.log('  conclave-codex use-skill my-custom-skill            # Load personal skill');
         return;
     }
 
     // Handle namespaced skill names
     let actualSkillPath;
-    let forceSuperpowers = false;
+    let forceConclave = false;
 
-    if (skillName.startsWith('superpowers:')) {
-        // Remove the superpowers: namespace prefix
-        actualSkillPath = skillName.substring('superpowers:'.length);
-        forceSuperpowers = true;
+    if (skillName.startsWith('conclave:')) {
+        // Remove the conclave: namespace prefix
+        actualSkillPath = skillName.substring('conclave:'.length);
+        forceConclave = true;
     } else {
         actualSkillPath = skillName;
     }
@@ -168,11 +168,11 @@ function runUseSkill(skillName) {
 
     let skillFile = null;
 
-    // If superpowers: namespace was used, only check superpowers skills
-    if (forceSuperpowers) {
-        if (fs.existsSync(superpowersSkillsDir)) {
-            const superpowersPath = path.join(superpowersSkillsDir, actualSkillPath);
-            skillFile = findSkillFile(superpowersPath);
+    // If conclave: namespace was used, only check conclave skills
+    if (forceConclave) {
+        if (fs.existsSync(conclaveSkillsDir)) {
+            const conclavePath = path.join(conclaveSkillsDir, actualSkillPath);
+            skillFile = findSkillFile(conclavePath);
         }
     } else {
         // First check personal skills directory (takes precedence)
@@ -186,12 +186,12 @@ function runUseSkill(skillName) {
             }
         }
 
-        // If not found in personal, check superpowers skills
-        if (!skillFile && fs.existsSync(superpowersSkillsDir)) {
-            const superpowersPath = path.join(superpowersSkillsDir, actualSkillPath);
-            skillFile = findSkillFile(superpowersPath);
+        // If not found in personal, check conclave skills
+        if (!skillFile && fs.existsSync(conclaveSkillsDir)) {
+            const conclavePath = path.join(conclaveSkillsDir, actualSkillPath);
+            skillFile = findSkillFile(conclavePath);
             if (skillFile) {
-                console.log(`# Loading superpowers skill: superpowers:${actualSkillPath}`);
+                console.log(`# Loading conclave skill: conclave:${actualSkillPath}`);
                 console.log(`# Source: ${skillFile}`);
                 console.log('');
             }
@@ -220,8 +220,8 @@ function runUseSkill(skillName) {
     }
 
     // Display skill header with clean info
-    const displayName = forceSuperpowers ? `superpowers:${actualSkillPath}` :
-                       (skillFile.includes(personalSkillsDir) ? actualSkillPath : `superpowers:${actualSkillPath}`);
+    const displayName = forceConclave ? `conclave:${actualSkillPath}` :
+                       (skillFile.includes(personalSkillsDir) ? actualSkillPath : `conclave:${actualSkillPath}`);
 
     const skillDirectory = path.dirname(skillFile);
 
@@ -253,15 +253,15 @@ switch (command) {
         runFindSkills();
         break;
     default:
-        console.log('Superpowers for Codex');
+        console.log('Conclave for Codex');
         console.log('Usage:');
-        console.log('  superpowers-codex bootstrap              # Run complete bootstrap with all skills');
-        console.log('  superpowers-codex use-skill <skill-name> # Load a specific skill');
-        console.log('  superpowers-codex find-skills            # List all available skills');
+        console.log('  conclave-codex bootstrap              # Run complete bootstrap with all skills');
+        console.log('  conclave-codex use-skill <skill-name> # Load a specific skill');
+        console.log('  conclave-codex find-skills            # List all available skills');
         console.log('');
         console.log('Examples:');
-        console.log('  superpowers-codex bootstrap');
-        console.log('  superpowers-codex use-skill superpowers:brainstorming');
-        console.log('  superpowers-codex use-skill my-custom-skill');
+        console.log('  conclave-codex bootstrap');
+        console.log('  conclave-codex use-skill conclave:brainstorming');
+        console.log('  conclave-codex use-skill my-custom-skill');
         break;
 }

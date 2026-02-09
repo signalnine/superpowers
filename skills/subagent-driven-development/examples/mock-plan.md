@@ -1,6 +1,6 @@
 # Mock Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans
+> **For Claude:** REQUIRED SUB-SKILL: Use conclave:executing-plans
 
 **Goal:** Test plan for parser validation
 

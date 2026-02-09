@@ -87,7 +87,7 @@ When the assistant uses the requesting-code-review skill, it should:
    **Note:** This shows the conceptual workflow. In practice, the script handles Gemini directly while the assistant must orchestrate Claude and Codex reviews separately.
 
 3. **Simultaneously launch Claude subagent:**
-   Use Task tool with superpowers:code-reviewer
+   Use Task tool with conclave:code-reviewer
 
 4. **Simultaneously launch Codex MCP:**
    Use mcp__codex-cli__codex tool

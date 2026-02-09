@@ -249,10 +249,10 @@ fi
 echo ""
 echo "Test 4: Testing resolveSkillPath..."
 
-# Create skills in personal and superpowers locations for testing
+# Create skills in personal and conclave locations for testing
 mkdir -p "$TEST_HOME/personal-skills/shared-skill"
-mkdir -p "$TEST_HOME/superpowers-skills/shared-skill"
-mkdir -p "$TEST_HOME/superpowers-skills/unique-skill"
+mkdir -p "$TEST_HOME/conclave-skills/shared-skill"
+mkdir -p "$TEST_HOME/conclave-skills/unique-skill"
 
 cat > "$TEST_HOME/personal-skills/shared-skill/SKILL.md" <<'EOF'
 ---
@@ -262,18 +262,18 @@ description: Personal version
 # Personal Shared
 EOF
 
-cat > "$TEST_HOME/superpowers-skills/shared-skill/SKILL.md" <<'EOF'
+cat > "$TEST_HOME/conclave-skills/shared-skill/SKILL.md" <<'EOF'
 ---
 name: shared-skill
-description: Superpowers version
+description: Conclave version
 ---
-# Superpowers Shared
+# Conclave Shared
 EOF
 
-cat > "$TEST_HOME/superpowers-skills/unique-skill/SKILL.md" <<'EOF'
+cat > "$TEST_HOME/conclave-skills/unique-skill/SKILL.md" <<'EOF'
 ---
 name: unique-skill
-description: Only in superpowers
+description: Only in conclave
 ---
 # Unique
 EOF
@@ -282,11 +282,11 @@ result=$(node -e "
 const fs = require('fs');
 const path = require('path');
 
-function resolveSkillPath(skillName, superpowersDir, personalDir) {
-    const forceSuperpowers = skillName.startsWith('superpowers:');
-    const actualSkillName = forceSuperpowers ? skillName.replace(/^superpowers:/, '') : skillName;
+function resolveSkillPath(skillName, conclaveDir, personalDir) {
+    const forceConclave = skillName.startsWith('conclave:');
+    const actualSkillName = forceConclave ? skillName.replace(/^conclave:/, '') : skillName;
 
-    if (!forceSuperpowers && personalDir) {
+    if (!forceConclave && personalDir) {
         const personalPath = path.join(personalDir, actualSkillName);
         const personalSkillFile = path.join(personalPath, 'SKILL.md');
         if (fs.existsSync(personalSkillFile)) {
@@ -298,13 +298,13 @@ function resolveSkillPath(skillName, superpowersDir, personalDir) {
         }
     }
 
-    if (superpowersDir) {
-        const superpowersPath = path.join(superpowersDir, actualSkillName);
-        const superpowersSkillFile = path.join(superpowersPath, 'SKILL.md');
-        if (fs.existsSync(superpowersSkillFile)) {
+    if (conclaveDir) {
+        const conclavePath = path.join(conclaveDir, actualSkillName);
+        const conclaveSkillFile = path.join(conclavePath, 'SKILL.md');
+        if (fs.existsSync(conclaveSkillFile)) {
             return {
-                skillFile: superpowersSkillFile,
-                sourceType: 'superpowers',
+                skillFile: conclaveSkillFile,
+                sourceType: 'conclave',
                 skillPath: actualSkillName
             };
         }
@@ -313,45 +313,45 @@ function resolveSkillPath(skillName, superpowersDir, personalDir) {
     return null;
 }
 
-const superpowersDir = '$TEST_HOME/superpowers-skills';
+const conclaveDir = '$TEST_HOME/conclave-skills';
 const personalDir = '$TEST_HOME/personal-skills';
 
 // Test 1: Shared skill should resolve to personal
-const shared = resolveSkillPath('shared-skill', superpowersDir, personalDir);
+const shared = resolveSkillPath('shared-skill', conclaveDir, personalDir);
 console.log('SHARED:', JSON.stringify(shared));
 
-// Test 2: superpowers: prefix should force superpowers
-const forced = resolveSkillPath('superpowers:shared-skill', superpowersDir, personalDir);
+// Test 2: conclave: prefix should force conclave
+const forced = resolveSkillPath('conclave:shared-skill', conclaveDir, personalDir);
 console.log('FORCED:', JSON.stringify(forced));
 
-// Test 3: Unique skill should resolve to superpowers
-const unique = resolveSkillPath('unique-skill', superpowersDir, personalDir);
+// Test 3: Unique skill should resolve to conclave
+const unique = resolveSkillPath('unique-skill', conclaveDir, personalDir);
 console.log('UNIQUE:', JSON.stringify(unique));
 
 // Test 4: Non-existent skill
-const notfound = resolveSkillPath('not-a-skill', superpowersDir, personalDir);
+const notfound = resolveSkillPath('not-a-skill', conclaveDir, personalDir);
 console.log('NOTFOUND:', JSON.stringify(notfound));
 " 2>&1)
 
 if echo "$result" | grep -q 'SHARED:.*"sourceType":"personal"'; then
-    echo "  [PASS] Personal skills shadow superpowers skills"
+    echo "  [PASS] Personal skills shadow conclave skills"
 else
     echo "  [FAIL] Personal skills not shadowing correctly"
     echo "  Result: $result"
     exit 1
 fi
 
-if echo "$result" | grep -q 'FORCED:.*"sourceType":"superpowers"'; then
-    echo "  [PASS] superpowers: prefix forces superpowers resolution"
+if echo "$result" | grep -q 'FORCED:.*"sourceType":"conclave"'; then
+    echo "  [PASS] conclave: prefix forces conclave resolution"
 else
-    echo "  [FAIL] superpowers: prefix not working"
+    echo "  [FAIL] conclave: prefix not working"
     exit 1
 fi
 
-if echo "$result" | grep -q 'UNIQUE:.*"sourceType":"superpowers"'; then
-    echo "  [PASS] Unique superpowers skills are found"
+if echo "$result" | grep -q 'UNIQUE:.*"sourceType":"conclave"'; then
+    echo "  [PASS] Unique conclave skills are found"
 else
-    echo "  [FAIL] Unique superpowers skills not found"
+    echo "  [FAIL] Unique conclave skills not found"
     exit 1
 fi
 

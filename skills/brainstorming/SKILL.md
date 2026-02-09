@@ -273,8 +273,8 @@ After the user validates the complete design, run multi-agent review:
 
 **Implementation (if continuing):**
 - Ask: "Ready to set up for implementation?"
-- Use superpowers:using-git-worktrees to create isolated workspace
-- Use superpowers:writing-plans to create detailed implementation plan
+- Use conclave:using-git-worktrees to create isolated workspace
+- Use conclave:writing-plans to create detailed implementation plan
 
 ## Key Principles
 

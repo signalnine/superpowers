@@ -11,7 +11,7 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout superpowers
+      - name: Checkout conclave
         uses: actions/checkout@v4
 
       - name: Extract version and build description
@@ -50,5 +50,5 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add plugins.json
-          git commit -m "chore: sync description from superpowers v${{ steps.extract.outputs.version }}"
+          git commit -m "chore: sync description from conclave v${{ steps.extract.outputs.version }}"
           git push
