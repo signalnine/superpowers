@@ -23,6 +23,7 @@ Options:
   -n, --max-iter N  Maximum iterations (default: 5)
   -d, --dir DIR     Project directory (default: current)
   --non-interactive Don't prompt for resume, auto-fresh
+  --worktree        Skip lock (for parallel worktree execution)
   -h, --help        Show this help
 
 Environment:
@@ -38,12 +39,14 @@ TASK_PROMPT=""
 MAX_ITER=5
 PROJECT_DIR="."
 NON_INTERACTIVE=false
+WORKTREE_MODE=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         -n|--max-iter) MAX_ITER="$2"; shift 2 ;;
         -d|--dir) PROJECT_DIR="$2"; shift 2 ;;
         --non-interactive) NON_INTERACTIVE=true; shift ;;
+        --worktree) WORKTREE_MODE=true; shift ;;
         -h|--help) usage; exit 0 ;;
         -*) echo "Unknown option: $1" >&2; usage; exit 1 ;;
         *)
@@ -67,11 +70,15 @@ echo "Max iterations: $MAX_ITER"
 echo "Project: $PROJECT_DIR"
 echo "========================================"
 
-# Acquire lock
-if ! acquire_lock; then
-    exit 1
+# Acquire lock (skip in worktree mode - isolation handled externally)
+if [ "$WORKTREE_MODE" = true ]; then
+    echo "Worktree mode: skipping lock (isolation via worktree)"
+else
+    if ! acquire_lock; then
+        exit 1
+    fi
+    setup_lock_trap
 fi
-setup_lock_trap
 
 # Check for existing state (resume vs fresh)
 if state_exists; then

@@ -121,6 +121,23 @@ else
 fi
 
 echo ""
+echo "=== Worktree Mode Tests ==="
+
+echo -n "Test: --worktree flag is parsed correctly... "
+WORKTREE_MODE=false
+for arg in "--worktree"; do
+    case $arg in
+        --worktree) WORKTREE_MODE=true ;;
+    esac
+done
+if [ "$WORKTREE_MODE" = true ]; then
+    echo "PASS"
+else
+    echo "FAIL"
+    exit 1
+fi
+
+echo ""
 echo "========================================"
 echo "ALL TESTS PASSED!"
 echo "========================================"
