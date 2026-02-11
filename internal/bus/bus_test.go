@@ -3,7 +3,10 @@ package bus
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -290,4 +293,159 @@ finished:
 		t.Error("expected some messages from concurrent publishers")
 	}
 	t.Logf("received %d of 50 messages (some may be dropped due to backpressure)", count)
+}
+
+func TestFileBusPublishSubscribe(t *testing.T) {
+	dir := t.TempDir()
+	bus, err := NewFileBus(dir, 50*time.Millisecond, 200*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bus.Close()
+
+	ch, err := bus.Subscribe("test.topic")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	msg := Message{Type: "discovery", Sender: "task-1", Payload: json.RawMessage(`{"found":"api"}`)}
+	if err := bus.Publish("test.topic", msg); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case env := <-ch:
+		if env.Type != "discovery" {
+			t.Errorf("type = %q, want discovery", env.Type)
+		}
+		if env.Sender != "task-1" {
+			t.Errorf("sender = %q, want task-1", env.Sender)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for message")
+	}
+}
+
+func TestFileBusMultipleMessages(t *testing.T) {
+	dir := t.TempDir()
+	bus, _ := NewFileBus(dir, 50*time.Millisecond, 200*time.Millisecond)
+	defer bus.Close()
+
+	ch, _ := bus.Subscribe("multi")
+
+	for i := 0; i < 5; i++ {
+		bus.Publish("multi", Message{
+			Type:    "msg",
+			Sender:  fmt.Sprintf("s-%d", i),
+			Payload: json.RawMessage(`{}`),
+		})
+	}
+
+	received := 0
+	timeout := time.After(2 * time.Second)
+	for received < 5 {
+		select {
+		case <-ch:
+			received++
+		case <-timeout:
+			t.Fatalf("got %d messages, want 5", received)
+		}
+	}
+}
+
+func TestFileBusPrefixMatch(t *testing.T) {
+	dir := t.TempDir()
+	bus, _ := NewFileBus(dir, 50*time.Millisecond, 200*time.Millisecond)
+	defer bus.Close()
+
+	ch, _ := bus.Subscribe("parallel.wave-0")
+
+	bus.Publish("parallel.wave-0.board", Message{Type: "yes", Sender: "a", Payload: json.RawMessage(`{}`)})
+	bus.Publish("parallel.wave-1.board", Message{Type: "no", Sender: "b", Payload: json.RawMessage(`{}`)})
+
+	select {
+	case env := <-ch:
+		if env.Type != "yes" {
+			t.Errorf("type = %q, want yes", env.Type)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout")
+	}
+
+	select {
+	case env := <-ch:
+		t.Errorf("unexpected message: %+v", env)
+	case <-time.After(200 * time.Millisecond):
+		// Good
+	}
+}
+
+func TestFileBusConcurrentWrites(t *testing.T) {
+	dir := t.TempDir()
+	bus, _ := NewFileBus(dir, 50*time.Millisecond, 200*time.Millisecond)
+	defer bus.Close()
+
+	ch, _ := bus.Subscribe("race")
+
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			bus.Publish("race", Message{
+				Type:    "test",
+				Sender:  fmt.Sprintf("w-%d", n),
+				Payload: json.RawMessage(fmt.Sprintf(`{"n":%d}`, n)),
+			})
+		}(i)
+	}
+	wg.Wait()
+
+	received := 0
+	timeout := time.After(3 * time.Second)
+	for received < 20 {
+		select {
+		case <-ch:
+			received++
+		case <-timeout:
+			t.Fatalf("got %d messages, want 20", received)
+		}
+	}
+}
+
+func TestFileBusClose(t *testing.T) {
+	dir := t.TempDir()
+	bus, _ := NewFileBus(dir, 50*time.Millisecond, 200*time.Millisecond)
+	ch, _ := bus.Subscribe("topic")
+	bus.Close()
+
+	_, ok := <-ch
+	if ok {
+		t.Error("channel should be closed after bus.Close()")
+	}
+}
+
+func TestFileBusFileFormat(t *testing.T) {
+	dir := t.TempDir()
+	bus, _ := NewFileBus(dir, 50*time.Millisecond, 200*time.Millisecond)
+
+	bus.Publish("check.format", Message{Type: "test", Sender: "s", Payload: json.RawMessage(`{"k":"v"}`)})
+	bus.Close()
+
+	// Read the raw file -- should be one JSON line
+	data, err := os.ReadFile(filepath.Join(dir, "check.format.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("got %d lines, want 1", len(lines))
+	}
+	var env Envelope
+	if err := json.Unmarshal([]byte(lines[0]), &env); err != nil {
+		t.Fatalf("invalid JSON line: %v", err)
+	}
+	if env.Type != "test" {
+		t.Errorf("type = %q, want test", env.Type)
+	}
 }
