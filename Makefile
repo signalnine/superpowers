@@ -1,4 +1,4 @@
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+VERSION := $(shell grep '"version"' .claude-plugin/plugin.json | head -1 | sed 's/.*"version": *"//;s/".*//')
 LDFLAGS := -ldflags "-X main.version=$(VERSION)"
 
 .PHONY: build install test test-integration lint clean
