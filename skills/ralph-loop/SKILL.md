@@ -1,6 +1,6 @@
 ---
 name: ralph-loop
-description: Autonomous iteration wrapper - runs tasks until success or cap hit
+description: Use when running tasks autonomously with retry - iterates until success or cap hit
 ---
 
 # Ralph Loop

@@ -1,6 +1,6 @@
 ---
 name: multi-agent-consensus
-description: Reusable multi-agent consensus infrastructure using two-stage synthesis for diverse AI perspectives (Claude/Gemini/Codex)
+description: Use when you need diverse AI perspectives via two-stage synthesis (Claude/Gemini/Codex)
 ---
 
 # Multi-Agent Consensus
