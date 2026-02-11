@@ -36,7 +36,6 @@ func TestBinaryBuildsWithBusPackage(t *testing.T) {
 func findRepoRoot(t *testing.T) string {
 	t.Helper()
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	cmd.Dir = "/home/gabe/conclave/.worktrees/message-bus"
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatal("not in a git repo")

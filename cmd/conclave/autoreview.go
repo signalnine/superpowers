@@ -60,7 +60,15 @@ func runAutoReview(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "Auto-review: base=%s head=%s\n", baseSHA[:8], headSHA[:8])
+	shortBase := baseSHA
+	if len(shortBase) > 8 {
+		shortBase = shortBase[:8]
+	}
+	shortHead := headSHA
+	if len(shortHead) > 8 {
+		shortHead = shortHead[:8]
+	}
+	fmt.Fprintf(os.Stderr, "Auto-review: base=%s head=%s\n", shortBase, shortHead)
 
 	// Set flags on consensus command and run it directly
 	planFile, _ := cmd.Flags().GetString("plan-file")
