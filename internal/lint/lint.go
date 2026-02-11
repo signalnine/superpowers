@@ -135,7 +135,9 @@ func lintFrontmatter(ps *parsedSkill) []Finding {
 }
 
 // DefaultWordLimit is the default word count warning threshold.
-const DefaultWordLimit = 500
+// Anthropic recommends <5,000 tokens (~3,500-4,000 words) per skill.
+// 2,500 words gives headroom above the median while flagging outliers.
+const DefaultWordLimit = 2500
 
 // LintOptions configures linting behavior.
 type LintOptions struct {
