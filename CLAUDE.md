@@ -90,6 +90,17 @@ The parallel task runner system:
 
 Autonomous iteration wrapper for tasks. Runs `claude -p` in fresh context per retry (max 5 attempts). Includes stuck detection, failure branching (`wip/ralph-fail-*`), and per-gate timeouts. State tracked in `.ralph_state.json` and `.ralph_context.md`.
 
+### Message Bus (`internal/bus/`)
+
+Inter-agent communication system with two transport implementations behind a unified `MessageBus` interface:
+- **`ChannelBus`** (`channel.go`) — In-process pub/sub via buffered Go channels (cap 64) with non-blocking send. Used for consensus debate (Stage 1.5) where all agents are goroutines.
+- **`FileBus`** (`file.go`) — Cross-process pub/sub via JSON Lines files with `syscall.Flock` for atomic appends. Adaptive polling (100ms→1s backoff). Used for parallel ralph-run bulletin boards.
+- **`bus.go`** — Core types (`Message`, `Envelope`, `MessageBus` interface), process-prefixed ID generation (`{pid}-{counter}`), prefix-based topic matching.
+
+Consensus Stage 1.5 debate: opt-in via `--debate` flag. After Stage 1, agents see each other's thesis summaries and produce rebuttals. Chairman receives both original analyses and rebuttals.
+
+Ralph bulletin board: wave-scoped boards where tasks post `<!-- BUS:type -->content<!-- /BUS -->` markers (discovery/warning/intent). Board entries injected into `.ralph_context.md` at iteration start (capped at 20, warnings always included). Orchestrator summarizes wave boards for next wave as `board.context`.
+
 ### Prose Linter (`internal/lint/`)
 
 SKILL.md validator (`conclave lint`) checking frontmatter (required fields, schema), description rules ("Use when" prefix, length limits), skill naming (lowercase-hyphenated), word count, cross-reference validation (with fenced code block awareness), duplicate name detection, and `docs/plans/` filename format. Human-readable and `--json` output. Exit 1 on errors, 0 on clean/warnings-only.

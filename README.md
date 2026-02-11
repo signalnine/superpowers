@@ -164,6 +164,45 @@ Fetch and follow instructions from https://raw.githubusercontent.com/signalnine/
 - **writing-skills** - Create new skills following best practices (includes testing methodology)
 - **using-conclave** - Introduction to the skills system
 
+## Message Bus
+
+Conclave includes a message bus for inter-agent coordination, supporting two use cases:
+
+### Consensus Debate (Stage 1.5)
+
+Opt-in debate round between agents during consensus review. After independent analysis (Stage 1), agents see each other's thesis summaries and produce rebuttals before the chairman synthesizes (Stage 2).
+
+```bash
+# Enable debate round
+conclave consensus --mode=general-prompt --debate \
+  --prompt="Review this architecture" --context="$(cat design.md)"
+
+# Control rounds and timeout
+conclave consensus --debate --debate-rounds 2 --debate-timeout 90 ...
+conclave auto-review --debate "Review recent changes"
+```
+
+### Parallel Bulletin Board
+
+Wave-scoped boards let parallel ralph-run tasks share discoveries. Tasks emit structured markers in their output:
+
+```
+<!-- BUS:discovery -->The API uses cursor-based pagination<!-- /BUS -->
+<!-- BUS:warning -->Package X v2 has breaking changes<!-- /BUS -->
+<!-- BUS:intent -->Modifying internal/auth/handler.go<!-- /BUS -->
+```
+
+The orchestrator summarizes each wave's board for the next wave, giving later tasks accumulated project knowledge.
+
+| Flag | Command | Description |
+|------|---------|-------------|
+| `--debate` | consensus, auto-review | Enable Stage 1.5 debate |
+| `--debate-rounds` | consensus, auto-review | Number of rounds (max 2) |
+| `--debate-timeout` | consensus, auto-review | Timeout per round (default 60s) |
+| `--board-dir` | ralph-run | Bulletin board directory |
+| `--board-topic` | ralph-run | Topic for board messages |
+| `--task-id` | ralph-run | Task identifier for messages |
+
 ## Prose Linter
 
 Validate SKILL.md files and plan filenames against authoring standards:
@@ -196,7 +235,7 @@ conclave lint --word-limit 1000
 | `duplicate-name` | error | No two skills share a name |
 | `plan-filename` | error | `YYYY-MM-DD-<topic>-{design,implementation}.md` |
 | `description-verbose` | warning | Description over 200 characters |
-| `word-count` | warning | Body exceeds word limit (default 500) |
+| `word-count` | warning | Body exceeds word limit (default 3500) |
 
 Exit code 0 = clean (or warnings only), exit code 1 = errors found.
 
