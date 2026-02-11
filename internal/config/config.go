@@ -79,11 +79,19 @@ func Load() *Config {
 }
 
 func loadDotEnv() {
+	// Load ./.env first (local project overrides), then ~/.env (global defaults).
+	// Since parseDotEnvFile only sets vars not already present, order determines priority.
+	parseDotEnvFile(".env")
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return
 	}
-	f, err := os.Open(filepath.Join(home, ".env"))
+	parseDotEnvFile(filepath.Join(home, ".env"))
+}
+
+func parseDotEnvFile(path string) {
+	f, err := os.Open(path)
 	if err != nil {
 		return
 	}

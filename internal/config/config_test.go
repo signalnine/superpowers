@@ -84,6 +84,34 @@ func TestLoadDotEnvExportPrefix(t *testing.T) {
 	}
 }
 
+func TestLoadDotEnvLocalOverridesHome(t *testing.T) {
+	// Set up ~/.env with one value
+	homeDir := t.TempDir()
+	os.WriteFile(filepath.Join(homeDir, ".env"), []byte("ANTHROPIC_API_KEY=from-home\nGEMINI_API_KEY=home-only\n"), 0644)
+
+	// Set up ./.env with an override for one key
+	localDir := t.TempDir()
+	os.WriteFile(filepath.Join(localDir, ".env"), []byte("ANTHROPIC_API_KEY=from-local\n"), 0644)
+
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	t.Setenv("GEMINI_API_KEY", "")
+	t.Setenv("GOOGLE_API_KEY", "")
+	t.Setenv("HOME", homeDir)
+
+	// Change to the local dir so ./.env is found
+	origDir, _ := os.Getwd()
+	os.Chdir(localDir)
+	defer os.Chdir(origDir)
+
+	cfg := Load()
+	if cfg.AnthropicAPIKey != "from-local" {
+		t.Errorf("AnthropicAPIKey got %q, want 'from-local' (local .env should win)", cfg.AnthropicAPIKey)
+	}
+	if cfg.GeminiAPIKey != "home-only" {
+		t.Errorf("GeminiAPIKey got %q, want 'home-only' (should fall through from ~/.env)", cfg.GeminiAPIKey)
+	}
+}
+
 func TestDefaults(t *testing.T) {
 	// Clear env vars that might interfere
 	for _, k := range []string{"ANTHROPIC_MODEL", "GEMINI_MODEL", "OPENAI_MODEL", "CONSENSUS_STAGE1_TIMEOUT"} {
