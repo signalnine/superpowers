@@ -97,6 +97,8 @@ func loadDotEnv() {
 		}
 		if k, v, ok := strings.Cut(line, "="); ok {
 			k = strings.TrimSpace(k)
+			k = strings.TrimPrefix(k, "export ")
+			k = strings.TrimSpace(k)
 			v = strings.TrimSpace(v)
 			v = strings.Trim(v, `"'`)
 			if os.Getenv(k) == "" {

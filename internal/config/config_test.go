@@ -25,6 +25,8 @@ func TestLoadAPIKeys(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Point HOME to empty temp dir so loadDotEnv() is a no-op
+			t.Setenv("HOME", t.TempDir())
 			for _, k := range []string{"ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY"} {
 				t.Setenv(k, "")
 			}
@@ -60,6 +62,25 @@ func TestLoadDotEnv(t *testing.T) {
 	cfg := Load()
 	if cfg.AnthropicAPIKey != "from-dotenv" {
 		t.Errorf("got %q, want 'from-dotenv'", cfg.AnthropicAPIKey)
+	}
+}
+
+func TestLoadDotEnvExportPrefix(t *testing.T) {
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, ".env")
+	os.WriteFile(envFile, []byte("export ANTHROPIC_API_KEY=from-dotenv-export\nexport GEMINI_API_KEY=\"quoted-value\"\n"), 0644)
+
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	t.Setenv("GEMINI_API_KEY", "")
+	t.Setenv("GOOGLE_API_KEY", "")
+	t.Setenv("HOME", dir)
+
+	cfg := Load()
+	if cfg.AnthropicAPIKey != "from-dotenv-export" {
+		t.Errorf("AnthropicAPIKey got %q, want 'from-dotenv-export'", cfg.AnthropicAPIKey)
+	}
+	if cfg.GeminiAPIKey != "quoted-value" {
+		t.Errorf("GeminiAPIKey got %q, want 'quoted-value'", cfg.GeminiAPIKey)
 	}
 }
 
