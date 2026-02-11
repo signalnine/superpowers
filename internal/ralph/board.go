@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/signalnine/conclave/internal/bus"
@@ -98,4 +99,43 @@ func FormatBoardContext(entries []bus.Envelope) string {
 		b.WriteString(fmt.Sprintf("- **[%s]** (%s): %s\n", prefix, e.Sender, payload.Text))
 	}
 	return b.String()
+}
+
+// BusMarker represents a structured marker extracted from LLM output.
+type BusMarker struct {
+	Type string // "board.discovery", "board.warning", "board.intent"
+	Text string
+}
+
+var busMarkerRe = regexp.MustCompile(`(?s)<!-- BUS:(discovery|warning|intent) -->(.*?)<!-- /BUS -->`)
+
+// ExtractBusMarkers extracts structured BUS markers from LLM output.
+func ExtractBusMarkers(output string) []BusMarker {
+	matches := busMarkerRe.FindAllStringSubmatch(output, -1)
+	var markers []BusMarker
+	for _, m := range matches {
+		markers = append(markers, BusMarker{
+			Type: "board." + m[1],
+			Text: strings.TrimSpace(m[2]),
+		})
+	}
+	return markers
+}
+
+// PublishMarkers publishes extracted markers to the message bus.
+func PublishMarkers(b bus.MessageBus, topic, sender string, markers []BusMarker) error {
+	for _, m := range markers {
+		payload, _ := json.Marshal(struct {
+			Text string `json:"text"`
+		}{Text: m.Text})
+		err := b.Publish(topic, bus.Message{
+			Type:    m.Type,
+			Sender:  sender,
+			Payload: json.RawMessage(payload),
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

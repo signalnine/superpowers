@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/signalnine/conclave/internal/bus"
 )
@@ -118,5 +120,70 @@ func writeBoardFile(t *testing.T, dir, name string, envs []bus.Envelope) {
 	enc := json.NewEncoder(f)
 	for _, e := range envs {
 		enc.Encode(e)
+	}
+}
+
+func TestExtractBusMarkers(t *testing.T) {
+	output := `Some normal output
+<!-- BUS:discovery -->The API uses cursor-based pagination<!-- /BUS -->
+More output here
+<!-- BUS:warning -->Package X v2 has breaking changes<!-- /BUS -->
+<!-- BUS:intent -->Modifying internal/auth/handler.go<!-- /BUS -->
+Final output`
+
+	markers := ExtractBusMarkers(output)
+	if len(markers) != 3 {
+		t.Fatalf("got %d markers, want 3", len(markers))
+	}
+
+	if markers[0].Type != "board.discovery" || markers[0].Text != "The API uses cursor-based pagination" {
+		t.Errorf("marker 0 = %+v", markers[0])
+	}
+	if markers[1].Type != "board.warning" || markers[1].Text != "Package X v2 has breaking changes" {
+		t.Errorf("marker 1 = %+v", markers[1])
+	}
+	if markers[2].Type != "board.intent" || markers[2].Text != "Modifying internal/auth/handler.go" {
+		t.Errorf("marker 2 = %+v", markers[2])
+	}
+}
+
+func TestExtractBusMarkersNone(t *testing.T) {
+	markers := ExtractBusMarkers("Normal output with no markers")
+	if len(markers) != 0 {
+		t.Errorf("got %d markers, want 0", len(markers))
+	}
+}
+
+func TestExtractBusMarkersMultiline(t *testing.T) {
+	output := "<!-- BUS:discovery -->This spans\nmultiple lines<!-- /BUS -->"
+	markers := ExtractBusMarkers(output)
+	if len(markers) != 1 {
+		t.Fatalf("got %d markers, want 1", len(markers))
+	}
+	if !strings.Contains(markers[0].Text, "multiple lines") {
+		t.Errorf("should capture multiline content: %q", markers[0].Text)
+	}
+}
+
+func TestPublishMarkers(t *testing.T) {
+	dir := t.TempDir()
+	b, _ := bus.NewFileBus(dir, 50*time.Millisecond, 200*time.Millisecond)
+	defer b.Close()
+
+	markers := []BusMarker{
+		{Type: "board.discovery", Text: "found something"},
+		{Type: "board.warning", Text: "watch out"},
+	}
+
+	err := PublishMarkers(b, "parallel.wave-0.board", "task-1", markers)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify messages in file
+	data, _ := os.ReadFile(filepath.Join(dir, "parallel.wave-0.board.jsonl"))
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines, want 2", len(lines))
 	}
 }
