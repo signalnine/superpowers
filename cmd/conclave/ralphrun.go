@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/signalnine/conclave/internal/bus"
 	gitpkg "github.com/signalnine/conclave/internal/git"
 	"github.com/signalnine/conclave/internal/ralph"
 	"github.com/spf13/cobra"
@@ -28,6 +29,9 @@ func init() {
 	ralphRunCmd.Flags().Int("spec-timeout", 120, "Spec gate timeout (seconds)")
 	ralphRunCmd.Flags().Int("stuck-threshold", 3, "Consecutive same-error count before strategy shift")
 	ralphRunCmd.Flags().Bool("skip-spec", false, "Skip spec compliance gate")
+	ralphRunCmd.Flags().String("board-dir", "", "Bulletin board directory for cross-task communication")
+	ralphRunCmd.Flags().String("board-topic", "", "Topic to publish board messages to")
+	ralphRunCmd.Flags().String("task-id", "", "Task identifier for board messages")
 	rootCmd.AddCommand(ralphRunCmd)
 }
 
@@ -38,6 +42,9 @@ func runRalphRun(cmd *cobra.Command, args []string) error {
 	testTimeout, _ := cmd.Flags().GetInt("test-timeout")
 	stuckThreshold, _ := cmd.Flags().GetInt("stuck-threshold")
 	skipSpec, _ := cmd.Flags().GetBool("skip-spec")
+	boardDir, _ := cmd.Flags().GetString("board-dir")
+	boardTopic, _ := cmd.Flags().GetString("board-topic")
+	taskID, _ := cmd.Flags().GetString("task-id")
 
 	if task == "" {
 		return fmt.Errorf("--task is required")
@@ -51,8 +58,8 @@ func runRalphRun(cmd *cobra.Command, args []string) error {
 	defer lock.Release()
 
 	sm := ralph.NewStateManager(cwd)
-	taskID := fmt.Sprintf("ralph-%d", time.Now().Unix())
-	if err := sm.Init(taskID, maxIter); err != nil {
+	stateTaskID := fmt.Sprintf("ralph-%d", time.Now().Unix())
+	if err := sm.Init(stateTaskID, maxIter); err != nil {
 		return err
 	}
 	defer sm.Cleanup()
@@ -68,7 +75,7 @@ func runRalphRun(cmd *cobra.Command, args []string) error {
 
 		if state.Iteration > state.MaxIterations {
 			fmt.Fprintf(os.Stderr, "\nMax iterations (%d) reached. Branching failed work.\n", maxIter)
-			ralph.BranchFailedWork(g, taskID, state)
+			ralph.BranchFailedWork(g, stateTaskID, state)
 			return fmt.Errorf("max iterations reached")
 		}
 
@@ -93,15 +100,42 @@ func runRalphRun(cmd *cobra.Command, args []string) error {
 			prompt = prompt + "\n\n## Previous Attempt Context\n" + string(ctxContent)
 		}
 
+		// Read board at iteration start
+		if boardDir != "" {
+			entries, err := ralph.ReadBoard(boardDir, 20)
+			if err == nil && len(entries) > 0 {
+				boardCtx := ralph.FormatBoardContext(entries)
+				prompt = prompt + "\n\n" + boardCtx
+			}
+		}
+
 		implCtx, implCancel := context.WithTimeout(ctx, time.Duration(implTimeout)*time.Second)
 		implCmd := exec.CommandContext(implCtx, "claude", "-p", prompt)
 		implCmd.Dir = cwd
 		implOut, implErr := implCmd.CombinedOutput()
 		implCancel()
 
+		iterationOutput := string(implOut)
+
+		// Write board markers from iteration output
+		if boardDir != "" && boardTopic != "" {
+			markers := ralph.ExtractBusMarkers(iterationOutput)
+			if len(markers) > 0 {
+				fileBus, busErr := bus.NewFileBus(boardDir, 100*time.Millisecond, time.Second)
+				if busErr == nil {
+					senderID := taskID
+					if senderID == "" {
+						senderID = "ralph"
+					}
+					ralph.PublishMarkers(fileBus, boardTopic, senderID, markers)
+					fileBus.Close()
+				}
+			}
+		}
+
 		if implErr != nil {
 			fmt.Fprintf(os.Stderr, "  Implementation failed: %v\n", implErr)
-			sm.Update("implement", 1, string(implOut))
+			sm.Update("implement", 1, iterationOutput)
 			continue
 		}
 		fmt.Fprintln(os.Stderr, "  Implementation complete")
@@ -119,7 +153,7 @@ func runRalphRun(cmd *cobra.Command, args []string) error {
 		// Gate 3: Spec (optional)
 		if !skipSpec {
 			fmt.Fprintln(os.Stderr, "Gate 3: Spec compliance...")
-			if strings.Contains(testOutput, "SPEC_PASS") || strings.Contains(string(implOut), "SPEC_PASS") {
+			if strings.Contains(testOutput, "SPEC_PASS") || strings.Contains(iterationOutput, "SPEC_PASS") {
 				fmt.Fprintln(os.Stderr, "  Spec compliance confirmed")
 			}
 		}
