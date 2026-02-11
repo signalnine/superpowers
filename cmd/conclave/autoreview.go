@@ -21,6 +21,9 @@ func init() {
 	autoReviewCmd.Flags().String("base-sha", "", "Override base SHA (default: auto-detect from origin/main)")
 	autoReviewCmd.Flags().String("head-sha", "", "Override head SHA (default: HEAD)")
 	autoReviewCmd.Flags().String("plan-file", "", "Path to implementation plan file")
+	autoReviewCmd.Flags().Bool("debate", false, "Enable Stage 1.5 debate round between agents")
+	autoReviewCmd.Flags().Int("debate-rounds", 1, "Number of debate rounds (max 2)")
+	autoReviewCmd.Flags().Int("debate-timeout", 60, "Timeout in seconds per debate round")
 	rootCmd.AddCommand(autoReviewCmd)
 }
 
@@ -68,6 +71,16 @@ func runAutoReview(cmd *cobra.Command, args []string) error {
 	if planFile != "" {
 		consensusCmd.Flags().Set("plan-file", planFile)
 	}
+
+	// Pass through debate flags
+	debate, _ := cmd.Flags().GetBool("debate")
+	if debate {
+		consensusCmd.Flags().Set("debate", "true")
+	}
+	debateRounds, _ := cmd.Flags().GetInt("debate-rounds")
+	consensusCmd.Flags().Set("debate-rounds", fmt.Sprintf("%d", debateRounds))
+	debateTimeout, _ := cmd.Flags().GetInt("debate-timeout")
+	consensusCmd.Flags().Set("debate-timeout", fmt.Sprintf("%d", debateTimeout))
 
 	return runConsensus(consensusCmd, nil)
 }
