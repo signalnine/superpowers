@@ -339,6 +339,22 @@ Before marking work complete:
 
 Can't check all boxes? You skipped TDD. Start over.
 
+## Completion Gate
+
+After all TDD cycles are complete and the verification checklist passes:
+
+1. Run the full project verification suite (not just your new tests):
+   - All tests: `npm test` (or project equivalent)
+   - Build: `npm run build`
+   - Lint: `npm run lint`
+2. Read COMPLETE output of each. Count failures.
+3. If ANY failure: fix and re-run all three.
+4. Commit: `git add -A && git commit -m '<description>'`
+5. Review your diff: `git diff HEAD~1`
+6. Look for: missing edge cases, incomplete implementations, dead code, debug artifacts
+7. Fix any issues found, re-verify, re-commit.
+8. Only claim done when verification passes AND diff review is clean.
+
 ## When Stuck
 
 | Problem | Solution |
