@@ -91,9 +91,9 @@ func runRalphRun(cmd *cobra.Command, args []string) error {
 
 		// Gate 1: Implementation
 		fmt.Fprintln(os.Stderr, "Gate 1: Implementation...")
-		prompt := task
+		prompt := ralph.TDDPreamble + "\n\n" + task
 		if stuckDirective != "" {
-			prompt = stuckDirective + "\n\n" + task
+			prompt = stuckDirective + "\n\n" + prompt
 		}
 		ctxContent, _ := os.ReadFile(sm.ContextFile())
 		if len(ctxContent) > 0 {
